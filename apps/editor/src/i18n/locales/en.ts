@@ -591,7 +591,7 @@ export const en: Messages = {
     allowReshare: "Allow sharing onward",
     allowReshareHint: "Someone with this link can create another one. The new link cannot last longer than this one.",
     create: "Create link",
-    creating: "Creating…",
+    creating: "Sharing…",
     copy: "Copy",
     copied: "Copied",
     existing: "This link",

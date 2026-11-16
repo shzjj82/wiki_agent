@@ -12,6 +12,10 @@ export type AiAssistTriggerConfig = {
 
 /** / 命令：选中后打开 AI 对话，不在正文留块 */
 export class AiAssistTriggerTool implements BlockTool {
+  static get isReadOnlySupported() {
+    return true;
+  }
+
   static get toolbox() {
     return {
       title: "AI Chat · ai",
@@ -33,6 +37,11 @@ export class AiAssistTriggerTool implements BlockTool {
   }
 
   render() {
+    if (this.api.readOnly.isEnabled) {
+      this.wrapper.className = "hidden";
+      this.wrapper.setAttribute("aria-hidden", "true");
+      return this.wrapper;
+    }
     if (!this.invoked) {
       this.invoked = true;
       window.setTimeout(() => {

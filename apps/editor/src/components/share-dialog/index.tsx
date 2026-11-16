@@ -83,7 +83,7 @@ export function ShareDialog({
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 flex-1 break-all rounded-md border border-border px-2.5 py-1.5 text-xs leading-5">{url}</p>
+          <p className="min-w-0 flex-1 truncate rounded-md border border-border px-2.5 py-1.5 text-xs leading-5" title={url}>{url}</p>
           <Button type="button" className="shrink-0" onClick={() => void share()} disabled={busy}>
             {busy ? t("share.creating") : copied ? t("share.copied") : t("share.menu")}
           </Button>

@@ -6,6 +6,10 @@ export type AskAiInlineConfig = {
 
 /** 划词工具栏里的「问 AI」，和粗体、斜体同一行 */
 export class AskAiInlineTool {
+  static get isReadOnlySupported() {
+    return true;
+  }
+
   static get isInline() {
     return true;
   }
