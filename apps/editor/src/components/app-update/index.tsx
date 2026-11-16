@@ -50,6 +50,13 @@ async function enforceRequiredUpdate(): Promise<boolean> {
 
 const CheckContext = createContext<(() => void) | null>(null);
 
+type UpdateUi = {
+  available: boolean;
+  openAvailable: () => void;
+};
+
+const UpdateUiContext = createContext<UpdateUi>({ available: false, openAvailable: () => undefined });
+
 /**
  * 桌面安装包里的可选更新。小版本只在菜单点「检查更新」时提示。
  * 大版本在原生壳里用系统对话框拦住，这里发现大版本就交给壳，不再弹页面。
@@ -68,10 +75,12 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   const [gotBytes, setGotBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
   const [message, setMessage] = useState("");
+  const [available, setAvailable] = useState(false);
 
   const remember = useCallback((next: UpdateHandle | null) => {
     updateRef.current = next;
     setUpdate(next);
+    setAvailable(Boolean(next));
   }, []);
 
   const closeUpdate = useCallback(async () => {
@@ -84,25 +93,32 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     }
   }, [remember]);
 
-  const checkForUpdate = useCallback(async () => {
+  const checkForUpdate = useCallback(async (opts?: { silent?: boolean }) => {
     if (busyRef.current) {
-      pendingManualRef.current = true;
+      if (!opts?.silent) {
+        pendingManualRef.current = true;
+      }
       return;
     }
     busyRef.current = true;
     setMessage("");
-    setPhase("checking");
-    setOpen(true);
+    if (!opts?.silent) {
+      setPhase("checking");
+      setOpen(true);
+    }
     const previous = updateRef.current;
-    remember(null);
-    if (previous) {
-      await previous.close().catch(() => undefined);
+    if (!opts?.silent) {
+      remember(null);
+      if (previous) {
+        await previous.close().catch(() => undefined);
+      }
     }
     try {
       const found = await lookForUpdate();
       if (found && isMajorUpgrade(found.currentVersion, found.version)) {
         setOpen(false);
         setPhase("idle");
+        setAvailable(false);
         const handled = await enforceRequiredUpdate();
         if (handled) {
           await found.close().catch(() => undefined);
@@ -110,16 +126,28 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
         }
       }
       if (!found) {
+        if (opts?.silent) {
+          setAvailable(false);
+          return;
+        }
         const { getVersion } = await import("@tauri-apps/api/app");
         setCurrentVersion(await getVersion().catch(() => ""));
         setPhase("current");
         setOpen(true);
         return;
       }
+      if (previous && previous !== found) {
+        await previous.close().catch(() => undefined);
+      }
       remember(found);
       setPhase("ready");
-      setOpen(true);
+      if (!opts?.silent) {
+        setOpen(true);
+      }
     } catch (err) {
+      if (opts?.silent) {
+        return;
+      }
       setMessage(err instanceof Error ? err.message : t("appUpdate.failed"));
       setPhase("error");
       setOpen(true);
@@ -131,6 +159,22 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [remember, t]);
+
+  const openAvailable = useCallback(() => {
+    if (!updateRef.current) {
+      void checkForUpdate();
+      return;
+    }
+    setPhase("ready");
+    setOpen(true);
+  }, [checkForUpdate]);
+
+  useEffect(() => {
+    if (!desktop) {
+      return;
+    }
+    void checkForUpdate({ silent: true });
+  }, [checkForUpdate, desktop]);
 
   useEffect(() => {
     if (!desktop) {
@@ -191,6 +235,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
 
   return (
     <CheckContext.Provider value={desktop ? () => void checkForUpdate() : null}>
+      <UpdateUiContext.Provider value={{ available: desktop && available, openAvailable }}>
       {children}
       {desktop ? (
         <Dialog
@@ -267,6 +312,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
           </DialogContent>
         </Dialog>
       ) : null}
+      </UpdateUiContext.Provider>
     </CheckContext.Provider>
   );
 }
@@ -278,6 +324,11 @@ export function CheckUpdateSlot({ children }: { children: (check: () => void) =>
     return null;
   }
   return children(check);
+}
+
+/** 未登录侧栏等处：有可升级版本时展示入口 */
+export function useAppUpdateUi(): UpdateUi {
+  return useContext(UpdateUiContext);
 }
 
 function formatBytes(bytes: number): string {

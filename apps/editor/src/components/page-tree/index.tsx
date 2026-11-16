@@ -25,6 +25,8 @@ type Props = {
   onExport: (id: string, format: ExportFormat) => void;
   onShare?: (id: string) => void;
   teamNames?: Record<string, string>;
+  /** 嵌在侧栏分区里时由外层滚动，不再自带 SoftScrollbar */
+  embedded?: boolean;
 };
 
 function buildTree(nodes: PageNode[]): TreeNode[] {
@@ -75,7 +77,19 @@ function filterTree(items: TreeNode[], query: string): TreeNode[] {
   return walk(items);
 }
 
-export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild, onDelete, onReparent, onExport, onShare, teamNames = {} }: Props) {
+export function PageTree({
+  nodes,
+  query = "",
+  selectedId,
+  onOpen,
+  onCreateChild,
+  onDelete,
+  onReparent,
+  onExport,
+  onShare,
+  teamNames = {},
+  embedded = false,
+}: Props) {
   const { t } = useTranslation();
   /** 默认折叠。当前页和它的上级会展开，刷新后按地址里的页面恢复。 */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -185,10 +199,10 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
           <div
             className={
               draggingId === node.id
-                ? "flex items-center gap-0.5 rounded-md opacity-40"
+                ? "group flex items-center gap-0.5 rounded-md opacity-40"
                 : isDrop
-                  ? "flex items-center gap-0.5 rounded-md bg-sidebar-accent"
-                  : "flex items-center gap-0.5"
+                  ? "group flex items-center gap-0.5 rounded-md bg-sidebar-accent"
+                  : "group flex items-center gap-0.5"
             }
             style={{ paddingLeft: depth * 14 }}
             onDragOver={(event) => {
@@ -241,85 +255,87 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
                 <span className="max-w-16 shrink-0 truncate text-[10px] text-muted-foreground">{teamNames[node.teamId]}</span>
               ) : null}
             </Button>
-            {selectedId === node.id ? (
-              <Popover open={menuId === node.id} onOpenChange={(open) => setMenuId(open ? node.id : null)}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="relative z-20"
-                    aria-label={t("pageTree.more")}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <More {...iconProps} size={14} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent>
+            <Popover open={menuId === node.id} onOpenChange={(next) => setMenuId(next ? node.id : null)}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className={
+                    menuId === node.id || selectedId === node.id
+                      ? "relative z-20 shrink-0"
+                      : "relative z-20 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100"
+                  }
+                  aria-label={t("pageTree.more")}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <More {...iconProps} size={14} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent>
+                <button
+                  type="button"
+                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+                  onClick={() => {
+                    setMenuId(null);
+                    setExpanded((prev) => ({ ...prev, [node.id]: true }));
+                    onCreateChild(node.id);
+                  }}
+                >
+                  <Plus {...iconProps} size={14} />
+                  {t("pageTree.addSubpage")}
+                </button>
+                {onShare ? (
                   <button
                     type="button"
                     className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
                     onClick={() => {
                       setMenuId(null);
-                      setExpanded((prev) => ({ ...prev, [node.id]: true }));
-                      onCreateChild(node.id);
+                      onShare(node.id);
                     }}
                   >
-                    <Plus {...iconProps} size={14} />
-                    {t("pageTree.addSubpage")}
+                    <Share {...iconProps} size={14} />
+                    {t("share.menu")}
                   </button>
-                  {onShare ? (
-                    <button
-                      type="button"
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                      onClick={() => {
-                        setMenuId(null);
-                        onShare(node.id);
-                      }}
-                    >
-                      <Share {...iconProps} size={14} />
-                      {t("share.menu")}
-                    </button>
-                  ) : null}
-                  <PopoverSeparator />
-                  <button
-                    type="button"
-                    className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                    onClick={() => {
-                      setMenuId(null);
-                      onExport(node.id, "pdf");
-                    }}
-                  >
-                    <FileTypeIcon type="pdf" />
-                    {t("common.exportPdf")}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                    onClick={() => {
-                      setMenuId(null);
-                      onExport(node.id, "word");
-                    }}
-                  >
-                    <FileTypeIcon type="word" />
-                    {t("common.exportWord")}
-                  </button>
-                  <PopoverSeparator />
-                  <button
-                    type="button"
-                    className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-destructive hover:bg-muted"
-                    onClick={() => {
-                      setMenuId(null);
-                      onDelete(node.id);
-                    }}
-                  >
-                    <Delete {...iconProps} size={14} />
-                    {t("common.delete")}
-                  </button>
-                </PopoverContent>
-              </Popover>
-            ) : null}
+                ) : null}
+                <PopoverSeparator />
+                <button
+                  type="button"
+                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+                  onClick={() => {
+                    setMenuId(null);
+                    onExport(node.id, "pdf");
+                  }}
+                >
+                  <FileTypeIcon type="pdf" />
+                  {t("common.exportPdf")}
+                </button>
+                <button
+                  type="button"
+                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+                  onClick={() => {
+                    setMenuId(null);
+                    onExport(node.id, "word");
+                  }}
+                >
+                  <FileTypeIcon type="word" />
+                  {t("common.exportWord")}
+                </button>
+                <PopoverSeparator />
+                <button
+                  type="button"
+                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-destructive hover:bg-muted"
+                  onClick={() => {
+                    setMenuId(null);
+                    onDelete(node.id);
+                  }}
+                >
+                  <Delete {...iconProps} size={14} />
+                  {t("common.delete")}
+                </button>
+              </PopoverContent>
+            </Popover>
           </div>
           {node.children.length > 0 && open ? <ul className="flex flex-col gap-0.5">{renderNodes(node.children, depth + 1)}</ul> : null}
           {draggingId === node.id ? <span className="sr-only">{t("pageTree.dragging")}</span> : null}
@@ -328,8 +344,8 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
     });
   }
 
-  return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
+  const body = (
+    <>
       {dragging?.parentId ? (
         <div
           className={
@@ -357,10 +373,20 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
       {searching && tree.length === 0 ? (
         <p className="px-2 py-3 text-xs text-muted-foreground">{t("pageTree.noMatchingPages")}</p>
       ) : (
-        <SoftScrollbar className="min-h-0 flex-1" contentClassName="px-0">
-          <ul className="flex flex-col gap-0.5">{renderNodes(tree, 0)}</ul>
-        </SoftScrollbar>
+        <ul className="flex flex-col gap-0.5">{renderNodes(tree, 0)}</ul>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex min-w-0 flex-col gap-1">{body}</div>;
+  }
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
+      <SoftScrollbar className="min-h-0 flex-1" contentClassName="px-0">
+        {body}
+      </SoftScrollbar>
     </div>
   );
 }

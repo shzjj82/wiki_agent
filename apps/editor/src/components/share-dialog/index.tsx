@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { copyText } from "@/lib/clipboard";
 import { createShare, createShareToken, sharePageUrl } from "@/store/shareStore";
+import { rememberShare } from "@/store/shareMemory";
 import type { RemoteSession } from "@/store/remoteStore";
 
 const EXPIRY = [
@@ -19,11 +20,13 @@ export function ShareDialog({
   pageId,
   title,
   onClose,
+  onShared,
 }: {
   session: RemoteSession;
   pageId: string;
   title: string;
   onClose: () => void;
+  onShared?: () => void;
 }) {
   const { t } = useTranslation();
   const [expiry, setExpiry] = useState<ExpiryId>("week");
@@ -49,7 +52,14 @@ export function ShareDialog({
     if (!sent) {
       setBusy(true);
       try {
-        await createShare(session, { pageId, expiresIn: seconds, token });
+        const created = await createShare(session, { pageId, expiresIn: seconds, token });
+        rememberShare({
+          token: created.token,
+          pageId,
+          title: created.title || title,
+          expiresAt: created.expiresAt,
+        });
+        onShared?.();
         setSent(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : t("share.failed"));

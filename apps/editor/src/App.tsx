@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type EditorJS from "@editorjs/editorjs";
 import { useTranslation } from "react-i18next";
-import { CloudStorage, CloseSmall, Delete, Download, Export, HamburgerButton, HardDisk, MoreTwo, People, Plus, Redo, Search, Undo } from "@icon-park/react";
+import { ArrowCircleUp, CloudStorage, CloseSmall, Delete, Download, Export, HamburgerButton, HardDisk, MoreTwo, People, Plus, Redo, Search, Undo } from "@icon-park/react";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { BlockEditor, type EditorHistoryApi } from "@/components/block-editor";
 import type { PageLinkData } from "@/components/block-editor/tools/PageLinkTool";
@@ -18,9 +18,9 @@ import { ImportDialog, type ImportChoice } from "@/components/import-dialog";
 import { LanguageSwitch } from "@/components/language-switch";
 import { NotifyBell } from "@/components/notify-bell";
 import { TodoDetailDialog, type TodoDetailTarget } from "@/components/notify-bell/TodoDetailDialog";
-import { PageTree } from "@/components/page-tree";
 import { ShareDialog } from "@/components/share-dialog";
-import { AppUpdateProvider } from "@/components/app-update";
+import { AppUpdateProvider, useAppUpdateUi } from "@/components/app-update";
+import { SidebarSections } from "@/components/sidebar-sections";
 import { isDesktopApp } from "@/lib/ai/skills";
 import { SettingsMenu } from "@/components/settings-menu";
 import { TeamDialog } from "@/components/team-dialog";
@@ -110,25 +110,6 @@ const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
 const SIDEBAR_WIDTH_KEY = "editor:sidebar-width";
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 480;
-const TEAM_COLORS = [
-  { fill: "#f6c6c0", line: "#e07a72" },
-  { fill: "#f7d98a", line: "#d7a322" },
-  { fill: "#bfe8d4", line: "#3eae86" },
-  { fill: "#c9d7fb", line: "#6d8eeb" },
-  { fill: "#e4c8f5", line: "#b57ad6" },
-  { fill: "#f6d0e4", line: "#d56aa3" },
-  { fill: "#c8ebe6", line: "#3aafa3" },
-  { fill: "#f3d2b8", line: "#d48955" },
-];
-
-function teamColor(id: string): { fill: string; line: string } {
-  let hash = 0;
-  for (const char of id) {
-    hash = (hash + char.charCodeAt(0)) % TEAM_COLORS.length;
-  }
-  return TEAM_COLORS[hash];
-}
-
 function readSidebarWidth(): number {
   const raw = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
   if (!Number.isFinite(raw)) {
@@ -164,6 +145,14 @@ function MenuRow({ icon, children, disabled, danger, onClick }: MenuRowProps) {
 }
 
 export function App() {
+  return (
+    <AppUpdateProvider>
+      <AppMain />
+    </AppUpdateProvider>
+  );
+}
+
+function AppMain() {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   /** 可视视口（top + height）：外壳永远精确覆盖用户看到的那块区域 */
@@ -209,6 +198,8 @@ export function App() {
   const [query, setQuery] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [sharePageId, setSharePageId] = useState<string | null>(null);
+  const [shareEpoch, setShareEpoch] = useState(0);
+  const appUpdate = useAppUpdateUi();
   const [syncPlan, setSyncPlan] = useState<SyncPlan | null>(null);
   const [syncStep, setSyncStep] = useState<"summary" | "checklist" | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -740,11 +731,17 @@ export function App() {
     await saveRemote(session, { ...parent, body: { ...(body ?? parent.body), blocks: [...(body ?? parent.body).blocks, block] } });
   }
 
-  async function createPage(parentId: string | null) {
+  async function createPage(parentId: string | null, teamId?: string | null) {
     setError("");
     try {
       const inherited = parentId ? (nodes.find((node) => node.id === parentId)?.teamId ?? null) : null;
-      const writingTeam = !parentId && activeTeamId && canWriteTeam(teams.find((team) => team.id === activeTeamId)?.role) ? activeTeamId : null;
+      const preferredTeam = teamId !== undefined ? teamId : activeTeamId;
+      const writingTeam =
+        !parentId && preferredTeam && canWriteTeam(teams.find((team) => team.id === preferredTeam)?.role) ? preferredTeam : null;
+      if (teamId !== undefined) {
+        writeActiveTeamId(teamId);
+        setActiveTeamId(teamId);
+      }
       const created = session ? await createRemote(session, parentId, inherited || writingTeam) : createLocal(parentId);
       if (parentId) {
         await appendChildLink(parentId, { pageId: created.id, slug: created.id, title: created.title });
@@ -1243,7 +1240,6 @@ export function App() {
   }
 
   return (
-    <AppUpdateProvider>
     <div
       /* 整个外壳钉在“可视视口”上（top 跟随 offsetTop、height = 可视高度）：
          键盘弹出 / iOS 平移可视视口露光标时，外壳始终精确覆盖用户看到的那块区域，
@@ -1310,10 +1306,14 @@ export function App() {
             <Plus {...iconProps} />
           </Button>
         </div>
-        <PageTree
-          nodes={session && activeTeamId ? nodes.filter((node) => node.teamId === activeTeamId) : nodes}
+        <SidebarSections
+          nodes={nodes}
+          teams={session ? teams : []}
           query={query}
           selectedId={page?.id}
+          shareEpoch={shareEpoch}
+          canCreateInTeam={(teamId) => canWriteTeam(teams.find((team) => team.id === teamId)?.role)}
+          onCreateInSection={(teamId) => void createPage(null, teamId)}
           onOpen={(id) => void openPage(id)}
           onCreateChild={(parentId) => void createPage(parentId)}
           onDelete={(id) => void removePage(id)}
@@ -1323,39 +1323,27 @@ export function App() {
         />
         <div className="mt-3 flex flex-col gap-2 border-t border-sidebar-border px-1 pt-3 text-xs text-muted-foreground">
           <div className="flex items-center justify-between gap-2">
-          {session && activeTeamId ? (
-            <div className="group/teams flex min-w-0 flex-1 items-center overflow-x-auto">
-              {[...teams.filter((team) => team.id === activeTeamId), ...teams.filter((team) => team.id !== activeTeamId)].map((team, index) => (
-                <button
-                  key={team.id}
-                  type="button"
-                  title={team.name}
-                  aria-label={team.name}
-                  aria-pressed={activeTeamId === team.id}
-                  className={`relative flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-semibold text-sidebar-foreground transition-[margin,border-color] duration-200 ${
-                    activeTeamId === team.id ? "z-30" : "z-0 border-sidebar hover:border-[var(--team-line)]"
-                  } ${index > 0 ? "-ml-4 group-hover/teams:ml-1" : ""}`}
-                  style={{
-                    background: teamColor(team.id).fill,
-                    ["--team-line" as string]: teamColor(team.id).line,
-                    borderColor: activeTeamId === team.id ? teamColor(team.id).line : undefined,
-                  }}
-                  onClick={() => {
-                    writeActiveTeamId(team.id);
-                    setActiveTeamId(team.id);
-                  }}
-                >
-                  {team.name.slice(0, 1)}
-                </button>
-              ))}
-            </div>
-          ) : session ? (
+          {session ? (
             <span className="min-w-0 flex-1 truncate px-2">{session.username}</span>
           ) : (
-            <Button type="button" variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" onClick={() => setAuthOpen(true)}>
-              <People {...iconProps} />
-              {t("app.logIn")}
-            </Button>
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" onClick={() => setAuthOpen(true)}>
+                <People {...iconProps} />
+                {t("app.logIn")}
+              </Button>
+              {appUpdate.available ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("appUpdate.availableShort")}
+                  title={t("appUpdate.availableShort")}
+                  onClick={() => appUpdate.openAvailable()}
+                >
+                  <ArrowCircleUp {...iconProps} />
+                </Button>
+              ) : null}
+            </div>
           )}
           {session ? (
             <SettingsMenu
@@ -1837,6 +1825,7 @@ export function App() {
           pageId={sharePageId}
           title={pageTitle(nodes.find((node) => node.id === sharePageId)?.title)}
           onClose={() => setSharePageId(null)}
+          onShared={() => setShareEpoch((n) => n + 1)}
         />
       ) : null}
       <ChangePasswordDialog
@@ -1876,6 +1865,5 @@ export function App() {
         onConfirm={() => void confirmSync()}
       />
     </div>
-    </AppUpdateProvider>
   );
 }

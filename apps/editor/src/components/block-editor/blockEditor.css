@@ -1501,9 +1501,9 @@ html.is-image-resizing * {
 
 .cdx-code {
   --code-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  --code-size: 14px;
-  --code-line: 24px;
-  --code-pad-y: 12px;
+  --code-size: 13px;
+  --code-line: 20px;
+  --code-pad-y: 10px;
   border: 0;
   border-radius: 12px;
   background: #f7f6f3;
@@ -1582,7 +1582,7 @@ html.is-image-resizing * {
   flex: 1 1 auto;
   width: max-content;
   min-width: 0;
-  min-height: calc(var(--code-pad-y) * 2 + var(--code-size) * var(--code-line) * 2);
+  min-height: calc(var(--code-pad-y) * 2 + var(--code-line) * 2);
 }
 
 .cdx-code__fault {
