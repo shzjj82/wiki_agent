@@ -3,13 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { copyText } from "@/lib/clipboard";
-import {
-  createShare,
-  listShares,
-  revokeShare,
-  sharePageUrl,
-  type ShareLink,
-} from "@/store/shareStore";
+import { createShare, listShares, sharePageUrl, type ShareLink } from "@/store/shareStore";
 import type { RemoteSession } from "@/store/remoteStore";
 
 const EXPIRY = [
@@ -81,16 +75,6 @@ export function ShareDialog({
     }
   }
 
-  async function revoke(token: string) {
-    setError("");
-    try {
-      await revokeShare(session, token);
-      setShares((rows) => rows.filter((row) => row.token !== token));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("share.failed"));
-    }
-  }
-
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-full min-w-0 overflow-x-hidden sm:max-w-md">
@@ -128,12 +112,9 @@ export function ShareDialog({
                     {share.sharedBy ? `${t("share.sharedBy", { name: share.sharedBy, time: formatDay(share.createdAt) })} · ` : ""}
                     {expired ? t("share.expired") : share.expiresAt ? t("share.until", { time: formatDay(share.expiresAt) }) : t("share.noExpiry")}
                   </p>
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-2">
                     <Button type="button" size="sm" variant="outline" onClick={() => void copy(share.token)}>
                       {copied === share.token ? t("share.copied") : t("share.copy")}
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => void revoke(share.token)}>
-                      {t("share.revoke")}
                     </Button>
                   </div>
                 </li>

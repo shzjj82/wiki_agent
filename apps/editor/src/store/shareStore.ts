@@ -1,7 +1,7 @@
 /**
  * 分享的客户端。
  *
- * 边界：编辑器（桌面端和部署出去的网页）只提交请求。创建、有效期、再分享、撤销、快照都由 NestJS 的 /wiki/shares 完成。
+ * 边界：编辑器（桌面端和部署出去的网页）只提交请求。创建、有效期、快照都由 NestJS 的 /wiki/shares 完成。链接发出后不能撤回。
  * 桌面端把 /wiki 代理到网关；网页上的 /s/:token 只负责把 NestJS 返回的快照画出来。
  * A 在客户端里分享，B 用浏览器打开已部署网页上的链接。桌面端本机地址不能当作分享链接。
  */
@@ -28,6 +28,8 @@ export type ShareLink = {
 };
 
 export type SharedPageNode = {
+  /** 与正文 pageLink 的 pageId 相同，只用来在这份分享里打开对应页面。 */
+  id?: string;
   title: string;
   body: EditorJsDocument;
   children?: SharedPageNode[];
@@ -39,8 +41,9 @@ export type SharedPageView = {
   expiresAt: string | null;
   sharedAt: string;
   sharedBy: string | null;
-  /** 分享父页面时，NestJS 把当时的全部子页面快照放在这里。 */
+  /** 子孙页面各自的快照。公开页一次只画当前页，不把这些正文接进父页面。 */
   children?: SharedPageNode[];
+  id?: string;
 };
 
 export type ShareDraft = {
@@ -58,12 +61,17 @@ type CreatedShare = {
   sharedBy?: string | null;
 };
 
-/** 已部署的编辑器网页。桌面端和本地 5174 分享出去的链接指向这里。 */
+/** 已部署的编辑器网页。桌面端分享出去的链接指向这里。 */
 const DEPLOYED_EDITOR_ORIGIN = "https://wiki.championsea.online";
 
-/** 当前就是这个网页时用当前域名；桌面端用已部署的地址。VITE_EDITOR_PUBLIC_ORIGIN 只在换域名时覆盖。 */
+/**
+ * vite 本地调试用当前地址，这样 /s/:token 能在 5174 打开。
+ * 桌面端跑在本机，发出去的链接必须是已部署网页。已经打开生产网页时用当前域名。
+ */
 export function shareSiteOrigin(origin = typeof window === "undefined" ? "" : window.location.origin): string {
-  if (origin && !isLocalShareOrigin(origin)) return origin.replace(/\/$/, "");
+  const current = origin.replace(/\/$/, "");
+  if (import.meta.env.DEV && current) return current;
+  if (current && !isLocalShareOrigin(current)) return current;
   const configured = ((import.meta.env.VITE_EDITOR_PUBLIC_ORIGIN as string | undefined) || "").replace(/\/$/, "");
   return configured || DEPLOYED_EDITOR_ORIGIN;
 }
@@ -149,6 +157,14 @@ function asDocument(value: unknown): EditorJsDocument {
   return { ...body, blocks: Array.isArray(body.blocks) ? body.blocks : [] };
 }
 
+function nodeId(row: Record<string, unknown>): string | undefined {
+  for (const key of ["id", "pageId", "key"]) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
 function asNode(value: unknown): SharedPageNode | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
@@ -156,16 +172,12 @@ function asNode(value: unknown): SharedPageNode | null {
   const rawChildren = Array.isArray(row.children) ? row.children : Array.isArray(row.pages) ? row.pages : [];
   const children = rawChildren.map(asNode).filter((item): item is SharedPageNode => item !== null);
   if (!title && children.length === 0) return null;
-  return { title, body: asDocument(row.body), children };
+  return { id: nodeId(row), title, body: asDocument(row.body), children };
 }
 
 export async function listShares(session: RemoteSession, pageId: string): Promise<ShareLink[]> {
   const data = await authedShare<{ shares?: ShareLink[] }>(session, "GET", `/wiki/shares?pageId=${encodeURIComponent(pageId)}`);
   return (data.shares ?? []).map((share) => ({ ...share, sharedBy: displayName(share.sharedBy) }));
-}
-
-export function revokeShare(session: RemoteSession, token: string): Promise<{ revoked: boolean }> {
-  return authedShare(session, "DELETE", `/wiki/shares/${encodeURIComponent(token)}`);
 }
 
 export async function viewShare(token: string): Promise<SharedPageView> {
@@ -178,5 +190,6 @@ export async function viewShare(token: string): Promise<SharedPageView> {
     sharedAt: typeof data.sharedAt === "string" ? data.sharedAt : typeof data.createdAt === "string" ? data.createdAt : "",
     sharedBy: displayName(data.sharedBy ?? data.sharer ?? data.owner),
     children: rawChildren.map(asNode).filter((item): item is SharedPageNode => item !== null),
+    id: nodeId(data),
   };
 }
