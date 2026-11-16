@@ -612,6 +612,8 @@ export const en: Messages = {
     reshareTitle: "Share this link onward",
     reshareAction: "Create a new link",
     sharedAt: "Shared {{time}}",
+    sharedBy: "Shared by {{name}} on {{time}}",
+    subpages: "Subpages",
     imageHidden: "This image needs a login, so it stays hidden on the public page.",
   },
 };

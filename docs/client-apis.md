@@ -33,11 +33,10 @@
 
 | 方法 | 路径 | 调用处 | 登录 |
 | --- | --- | --- | --- |
-| POST | `/wiki/shares` | `shareStore.ts` 生成链接。body `{ pageId, expiresIn, allowReshare }`，`expiresIn` 为空表示不过期 | 用户 JWT |
-| GET | `/wiki/shares?pageId=` | `shareStore.ts` 当前页已发出的链接 | 用户 JWT |
+| POST | `/wiki/shares` | `shareStore.ts` 生成链接。body `{ pageId, expiresIn }`，`expiresIn` 为空表示不过期，否则按整天。父页面会带上当时的全部子页面 | 用户 JWT |
+| GET | `/wiki/shares?pageId=` | `shareStore.ts` 当前页已发出的链接。日期只显示到天，并带分享人 | 用户 JWT |
 | DELETE | `/wiki/shares/:token` | `shareStore.ts` 撤销。原始创建者、文档作者可以撤销 | 用户 JWT |
-| GET | `/wiki/shares/view/:token` | 公开只读页 | 否。链接即凭证 |
-| POST | `/wiki/shares/view/:token/reshare` | 公开页再分享。父链接必须允许，新链接不能比父链接更晚过期 | 否。父链接即凭证 |
+| GET | `/wiki/shares/view/:token` | 公开只读页。返回标题、正文、`children`、`sharedBy`，日期只显示到天 | 否。链接即凭证 |
 
 ### 团队
 

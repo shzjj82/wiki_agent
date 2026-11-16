@@ -610,6 +610,8 @@ export const zh = {
     reshareTitle: "再分享这条链接",
     reshareAction: "生成新链接",
     sharedAt: "分享于 {{time}}",
+    sharedBy: "{{name}} 分享于 {{time}}",
+    subpages: "子页面",
     imageHidden: "这张图片需要登录才能看，公开页不显示。",
   },
 };

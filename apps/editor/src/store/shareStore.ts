@@ -23,32 +23,39 @@ export type ShareLink = {
   title: string;
   createdAt: string;
   expiresAt: string | null;
-  allowReshare: boolean;
+  sharedBy?: string | null;
   parentToken: string | null;
+};
+
+export type SharedPageNode = {
+  title: string;
+  body: EditorJsDocument;
+  children?: SharedPageNode[];
 };
 
 export type SharedPageView = {
   title: string;
   body: EditorJsDocument;
   expiresAt: string | null;
-  allowReshare: boolean;
   sharedAt: string;
+  sharedBy: string | null;
+  /** 分享父页面时，NestJS 把当时的全部子页面快照放在这里。 */
+  children?: SharedPageNode[];
 };
 
 export type ShareDraft = {
   pageId: string;
   /** 秒。null 表示不过期。 */
   expiresIn: number | null;
-  allowReshare: boolean;
 };
 
 type CreatedShare = {
   token: string;
   urlPath: string;
   expiresAt: string | null;
-  allowReshare: boolean;
   title: string;
   pageId?: string;
+  sharedBy?: string | null;
 };
 
 /** 已部署的编辑器网页。桌面端和本地 5174 分享出去的链接指向这里。 */
@@ -119,23 +126,57 @@ export function createShare(session: RemoteSession, draft: ShareDraft): Promise<
   return authedShare<CreatedShare>(session, "POST", "/wiki/shares", {
     pageId: draft.pageId,
     expiresIn: draft.expiresIn,
-    allowReshare: draft.allowReshare,
   });
+}
+
+function displayName(value: unknown): string | null {
+  if (typeof value === "string") {
+    const name = value.trim();
+    return name || null;
+  }
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  for (const key of ["nickname", "username", "name", "displayName"]) {
+    const name = row[key];
+    if (typeof name === "string" && name.trim()) return name.trim();
+  }
+  return null;
+}
+
+function asDocument(value: unknown): EditorJsDocument {
+  if (!value || typeof value !== "object") return { blocks: [] };
+  const body = value as EditorJsDocument;
+  return { ...body, blocks: Array.isArray(body.blocks) ? body.blocks : [] };
+}
+
+function asNode(value: unknown): SharedPageNode | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const title = typeof row.title === "string" ? row.title.trim() : "";
+  const rawChildren = Array.isArray(row.children) ? row.children : Array.isArray(row.pages) ? row.pages : [];
+  const children = rawChildren.map(asNode).filter((item): item is SharedPageNode => item !== null);
+  if (!title && children.length === 0) return null;
+  return { title, body: asDocument(row.body), children };
 }
 
 export async function listShares(session: RemoteSession, pageId: string): Promise<ShareLink[]> {
   const data = await authedShare<{ shares?: ShareLink[] }>(session, "GET", `/wiki/shares?pageId=${encodeURIComponent(pageId)}`);
-  return data.shares ?? [];
+  return (data.shares ?? []).map((share) => ({ ...share, sharedBy: displayName(share.sharedBy) }));
 }
 
 export function revokeShare(session: RemoteSession, token: string): Promise<{ revoked: boolean }> {
   return authedShare(session, "DELETE", `/wiki/shares/${encodeURIComponent(token)}`);
 }
 
-export function viewShare(token: string): Promise<SharedPageView> {
-  return publicShare<SharedPageView>("GET", `/wiki/shares/view/${encodeURIComponent(token)}`);
-}
-
-export function resharePage(token: string, draft: { expiresIn: number | null; allowReshare: boolean }): Promise<CreatedShare> {
-  return publicShare<CreatedShare>("POST", `/wiki/shares/view/${encodeURIComponent(token)}/reshare`, draft);
+export async function viewShare(token: string): Promise<SharedPageView> {
+  const data = await publicShare<Record<string, unknown>>("GET", `/wiki/shares/view/${encodeURIComponent(token)}`);
+  const rawChildren = Array.isArray(data.children) ? data.children : Array.isArray(data.pages) ? data.pages : [];
+  return {
+    title: typeof data.title === "string" ? data.title : "",
+    body: asDocument(data.body),
+    expiresAt: typeof data.expiresAt === "string" ? data.expiresAt : null,
+    sharedAt: typeof data.sharedAt === "string" ? data.sharedAt : typeof data.createdAt === "string" ? data.createdAt : "",
+    sharedBy: displayName(data.sharedBy ?? data.sharer ?? data.owner),
+    children: rawChildren.map(asNode).filter((item): item is SharedPageNode => item !== null),
+  };
 }

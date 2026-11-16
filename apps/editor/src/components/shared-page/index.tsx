@@ -1,19 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { resharePage, sharePageUrl, viewShare, type SharedPageView } from "@/store/shareStore";
+import { viewShare, type SharedPageNode, type SharedPageView } from "@/store/shareStore";
 
 const ALLOWED = new Set(["B", "I", "STRONG", "EM", "U", "S", "MARK", "CODE", "BR", "A", "SPAN"]);
-
-const EXPIRY = [
-  { id: "never", seconds: null },
-  { id: "day", seconds: 86_400 },
-  { id: "week", seconds: 7 * 86_400 },
-  { id: "month", seconds: 30 * 86_400 },
-] as const;
-
-type ExpiryId = (typeof EXPIRY)[number]["id"];
 
 function sanitize(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -50,7 +40,7 @@ function sanitize(html: string): string {
 }
 
 function RichText({ html, className }: { html: string; className?: string }) {
-  return <div className={className} dangerouslySetInnerHTML={{ __html: sanitize(html) }} />;
+  return <div className={`break-words ${className ?? ""}`} dangerouslySetInnerHTML={{ __html: sanitize(html) }} />;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -98,12 +88,12 @@ function imageUrl(data: Record<string, unknown>): string {
   return /^https?:\/\//i.test(url) ? url : "";
 }
 
-function BlockView({ block }: { block: EditorJsBlock }) {
+function BlockView({ block, onOpenTitle }: { block: EditorJsBlock; onOpenTitle?: (title: string) => void }) {
   const { t } = useTranslation();
   const data = asRecord(block.data);
   if (block.type === "header") {
     const level = Math.min(6, Math.max(1, Number(data.level) || 2));
-    const className = `${["text-3xl", "text-2xl", "text-xl", "text-lg", "text-base", "text-sm"][level - 1]} font-semibold [&_a]:underline`;
+    const className = `${["text-3xl", "text-2xl", "text-xl", "text-lg", "text-base", "text-sm"][level - 1]} break-words font-semibold [&_a]:underline`;
     const html = sanitize(textOf(data.text));
     if (level === 1) return <h1 className={className} dangerouslySetInnerHTML={{ __html: html }} />;
     if (level === 2) return <h2 className={className} dangerouslySetInnerHTML={{ __html: html }} />;
@@ -132,7 +122,7 @@ function BlockView({ block }: { block: EditorJsBlock }) {
     const rows = Array.isArray(data.content) ? data.content : [];
     const head = data.withHeadings === true;
     return (
-      <div className="overflow-x-auto">
+      <div className="max-w-full min-w-0 overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <tbody>
             {rows.map((row, rowIndex) => (
@@ -164,9 +154,22 @@ function BlockView({ block }: { block: EditorJsBlock }) {
       </figure>
     );
   }
+  if (block.type === "pageLink") {
+    const title = textOf(data.title).trim();
+    if (!title) return null;
+    return (
+      <button
+        type="button"
+        className="w-full min-w-0 break-words rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-muted/60"
+        onClick={() => onOpenTitle?.(title)}
+      >
+        {title}
+      </button>
+    );
+  }
   if (block.type === "code") {
     return (
-      <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
+      <pre className="max-w-full overflow-x-auto rounded-md bg-muted p-3 text-xs">
         <code>{textOf(data.code)}</code>
       </pre>
     );
@@ -176,36 +179,98 @@ function BlockView({ block }: { block: EditorJsBlock }) {
   return <RichText html={fallback} className="leading-7 [&_a]:underline" />;
 }
 
-function Article({ body }: { body: EditorJsDocument }) {
-  const { t } = useTranslation();
+/** 页面标题已经单独显示。正文开头再放一个相同的一级标题，就会出现两个头。 */
+function bodyWithoutDuplicateTitle(title: string, body: EditorJsDocument): EditorJsBlock[] {
   const blocks = Array.isArray(body?.blocks) ? body.blocks : [];
+  const first = blocks[0];
+  if (!first || first.type !== "header") return blocks;
+  const data = asRecord(first.data);
+  const level = Number(data.level) || 1;
+  if (level !== 1) return blocks;
+  const text = plainText(textOf(data.text));
+  if (!text || text !== title.trim()) return blocks;
+  return blocks.slice(1);
+}
+
+function Article({ title, body, onOpenTitle }: { title: string; body: EditorJsDocument; onOpenTitle?: (title: string) => void }) {
+  const { t } = useTranslation();
+  const blocks = bodyWithoutDuplicateTitle(title, body);
   if (blocks.length === 0) return <p className="text-muted-foreground">{t("share.emptyBody")}</p>;
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {blocks.map((block, index) => (
-        <BlockView key={block.id || index} block={block} />
+        <BlockView key={block.id || index} block={block} onOpenTitle={onOpenTitle} />
       ))}
     </div>
   );
 }
 
-function formatWhen(iso: string | null, language: string): string {
+function formatDay(iso: string | null): string {
   if (!iso) return "";
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(language);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}/${month}/${day}`;
+}
+
+function plainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findByTitle(node: SharedPageNode, title: string): SharedPageNode | null {
+  if (node.title.trim() === title.trim()) return node;
+  for (const child of node.children ?? []) {
+    const found = findByTitle(child, title);
+    if (found) return found;
+  }
+  return null;
+}
+
+function hasChild(node: SharedPageNode): boolean {
+  return (node.children ?? []).length > 0;
+}
+
+function PageNav({
+  nodes,
+  active,
+  onOpen,
+  depth = 0,
+}: {
+  nodes: SharedPageNode[];
+  active: SharedPageNode;
+  onOpen: (node: SharedPageNode) => void;
+  depth?: number;
+}) {
+  return (
+    <ul className="flex min-w-0 flex-col gap-0.5">
+      {nodes.map((node, index) => (
+        <li key={`${depth}-${index}-${node.title}`} className="min-w-0">
+          <button
+            type="button"
+            className={`w-full break-words rounded-md px-2 py-1 text-left text-sm ${node === active ? "bg-muted font-medium" : "hover:bg-muted/60"}`}
+            style={{ paddingLeft: 8 + depth * 12 }}
+            onClick={() => onOpen(node)}
+          >
+            {node.title}
+          </button>
+          {node.children?.length ? <PageNav nodes={node.children} active={active} onOpen={onOpen} depth={depth + 1} /> : null}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function SharedPage({ token }: { token: string }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [page, setPage] = useState<SharedPageView | null>(null);
   const [missing, setMissing] = useState(false);
-  const [expiry, setExpiry] = useState<ExpiryId>("week");
-  const [allowReshare, setAllowReshare] = useState(false);
-  const [childUrl, setChildUrl] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [picked, setPicked] = useState<SharedPageNode | null>(null);
 
   useEffect(() => {
     let gone = false;
@@ -213,6 +278,7 @@ export function SharedPage({ token }: { token: string }) {
       setMissing(true);
       return;
     }
+    setPicked(null);
     void viewShare(token)
       .then((next) => {
         if (!gone) setPage(next);
@@ -225,90 +291,65 @@ export function SharedPage({ token }: { token: string }) {
     };
   }, [token]);
 
+  const root = useMemo<SharedPageNode | null>(
+    () => (page ? { title: page.title, body: page.body, children: page.children ?? [] } : null),
+    [page],
+  );
+  const current = picked && root && findByTitle(root, picked.title) ? picked : root;
+
   useEffect(() => {
     const previous = document.title;
-    if (page?.title) document.title = page.title;
+    if (current?.title) document.title = current.title;
     return () => {
       document.title = previous;
     };
-  }, [page?.title]);
+  }, [current?.title]);
 
-  async function makeChild() {
-    setBusy(true);
-    setError("");
-    try {
-      const seconds = EXPIRY.find((item) => item.id === expiry)?.seconds ?? null;
-      const created = await resharePage(token, { expiresIn: seconds, allowReshare });
-      const url = sharePageUrl(created.token);
-      setChildUrl(url);
-      await navigator.clipboard.writeText(url).catch(() => undefined);
-      setCopied(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("share.failed"));
-    } finally {
-      setBusy(false);
-    }
+  const when = page ? formatDay(page.sharedAt) : "";
+  const until = page?.expiresAt ? formatDay(page.expiresAt) : "";
+  const byline = page
+    ? page.sharedBy
+      ? t("share.sharedBy", { name: page.sharedBy, time: when })
+      : t("share.sharedAt", { time: when })
+    : "";
+
+  function openTitle(title: string) {
+    if (!root) return;
+    const next = findByTitle(root, title);
+    if (next) setPicked(next);
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <article className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-10">
+    <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-6 px-4 py-8 md:flex-row md:px-6">
         {missing ? (
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold">{t("share.unavailableTitle")}</h1>
-            <p className="text-muted-foreground">{t("share.unavailable")}</p>
+          <div className="min-w-0 space-y-2">
+            <h1 className="break-words text-2xl font-semibold">{t("share.unavailableTitle")}</h1>
+            <p className="break-words text-muted-foreground">{t("share.unavailable")}</p>
           </div>
-        ) : page ? (
+        ) : current && root ? (
           <>
-            <header className="space-y-2">
-              <h1 className="text-3xl font-semibold">{page.title}</h1>
-              <p className="text-xs text-muted-foreground">
-                {t("share.sharedAt", { time: formatWhen(page.sharedAt, i18n.language) })}
-                {page.expiresAt ? ` · ${t("share.until", { time: formatWhen(page.expiresAt, i18n.language) })}` : ` · ${t("share.noExpiry")}`}
-              </p>
-            </header>
-            <Article body={page.body} />
-            {page.allowReshare ? (
-              <section className="space-y-3 rounded-xl border border-border p-4">
-                <h2 className="text-sm font-medium">{t("share.reshareTitle")}</h2>
-                <div className="flex flex-wrap gap-2">
-                  {EXPIRY.map((item) => (
-                    <Button key={item.id} type="button" size="sm" variant={expiry === item.id ? "default" : "outline"} onClick={() => setExpiry(item.id)}>
-                      {t(`share.${item.id}`)}
-                    </Button>
-                  ))}
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={allowReshare} onChange={(event) => setAllowReshare(event.target.checked)} />
-                  {t("share.allowReshare")}
-                </label>
-                <Button type="button" onClick={() => void makeChild()} disabled={busy}>
-                  {busy ? t("share.creating") : t("share.reshareAction")}
-                </Button>
-                {childUrl ? (
-                  <div className="flex gap-2">
-                    <input readOnly value={childUrl} className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs" />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(childUrl);
-                        setCopied(true);
-                      }}
-                    >
-                      {copied ? t("share.copied") : t("share.copy")}
-                    </Button>
-                  </div>
-                ) : null}
-                {error ? <p className="text-sm text-destructive">{error}</p> : null}
-              </section>
+            {hasChild(root) ? (
+              <nav className="min-w-0 md:w-56 md:shrink-0">
+                <p className="mb-2 text-xs text-muted-foreground">{t("share.subpages")}</p>
+                <PageNav nodes={[root]} active={current} onOpen={setPicked} />
+              </nav>
             ) : null}
+            <article className="min-w-0 flex-1">
+              <header className="mb-6 space-y-2">
+                <h1 className="break-words text-3xl font-semibold">{current.title}</h1>
+                <p className="break-words text-xs text-muted-foreground">
+                  {byline}
+                  {until ? ` · ${t("share.until", { time: until })}` : ` · ${t("share.noExpiry")}`}
+                </p>
+              </header>
+              <Article title={current.title} body={current.body} onOpenTitle={openTitle} />
+            </article>
           </>
         ) : (
           <p className="text-muted-foreground">{t("share.loading")}</p>
         )}
-      </article>
+      </div>
     </main>
   );
 }

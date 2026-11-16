@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+import { copyText } from "@/lib/clipboard";
 import {
   createShare,
   listShares,
@@ -21,10 +21,12 @@ const EXPIRY = [
 
 type ExpiryId = (typeof EXPIRY)[number]["id"];
 
-function formatWhen(iso: string, language: string): string {
+function formatDay(iso: string): string {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(language);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}/${month}/${day}`;
 }
 
 export function ShareDialog({
@@ -38,9 +40,8 @@ export function ShareDialog({
   title: string;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [expiry, setExpiry] = useState<ExpiryId>("week");
-  const [allowReshare, setAllowReshare] = useState(false);
   const [shares, setShares] = useState<ShareLink[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,8 +62,7 @@ export function ShareDialog({
   }, [session, pageId, t]);
 
   async function copy(token: string) {
-    await navigator.clipboard.writeText(sharePageUrl(token));
-    setCopied(token);
+    if (await copyText(sharePageUrl(token))) setCopied(token);
   }
 
   async function create() {
@@ -70,7 +70,7 @@ export function ShareDialog({
     setError("");
     try {
       const seconds = EXPIRY.find((item) => item.id === expiry)?.seconds ?? null;
-      const created = await createShare(session, { pageId, expiresIn: seconds, allowReshare });
+      const created = await createShare(session, { pageId, expiresIn: seconds });
       const rows = await listShares(session, pageId);
       setShares(rows);
       await copy(created.token);
@@ -93,10 +93,10 @@ export function ShareDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("share.title")}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="w-full min-w-0 overflow-x-hidden sm:max-w-md">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="break-words">{t("share.title")}</DialogTitle>
+          <DialogDescription className="break-words">
             {title}
             {" · "}
             {t("share.description")}
@@ -112,13 +112,6 @@ export function ShareDialog({
             ))}
           </div>
         </div>
-        <label className="flex items-start justify-between gap-3">
-          <span className="space-y-1">
-            <span className="block text-sm">{t("share.allowReshare")}</span>
-            <span className="block text-xs text-muted-foreground">{t("share.allowReshareHint")}</span>
-          </span>
-          <Switch checked={allowReshare} onCheckedChange={setAllowReshare} />
-        </label>
         <Button type="button" onClick={() => void create()} disabled={busy}>
           {busy ? t("share.creating") : t("share.create")}
         </Button>
@@ -129,13 +122,11 @@ export function ShareDialog({
             {shares.map((share) => {
               const expired = Boolean(share.expiresAt && Date.parse(share.expiresAt) <= Date.now());
               return (
-                <li key={share.token} className="rounded-md border border-border p-2">
-                  <p className="truncate text-xs">{sharePageUrl(share.token) || `/s/${share.token}`}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {expired ? t("share.expired") : share.expiresAt ? t("share.until", { time: formatWhen(share.expiresAt, i18n.language) }) : t("share.noExpiry")}
-                    {" · "}
-                    {share.allowReshare ? t("share.reshareOn") : t("share.reshareOff")}
-                    {share.parentToken ? ` · ${t("share.child")}` : ""}
+                <li key={share.token} className="min-w-0 rounded-md border border-border p-2">
+                  <p className="break-all text-xs">{sharePageUrl(share.token) || `/s/${share.token}`}</p>
+                  <p className="mt-1 break-words text-[11px] text-muted-foreground">
+                    {share.sharedBy ? `${t("share.sharedBy", { name: share.sharedBy, time: formatDay(share.createdAt) })} · ` : ""}
+                    {expired ? t("share.expired") : share.expiresAt ? t("share.until", { time: formatDay(share.expiresAt) }) : t("share.noExpiry")}
                   </p>
                   <div className="mt-2 flex gap-2">
                     <Button type="button" size="sm" variant="outline" onClick={() => void copy(share.token)}>
@@ -150,7 +141,7 @@ export function ShareDialog({
             })}
           </ul>
         </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="min-w-0 break-words text-sm text-destructive">{error}</p> : null}
       </DialogContent>
     </Dialog>
   );
