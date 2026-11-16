@@ -1,7 +1,7 @@
 /**
  * 分享的客户端。
  *
- * 边界：编辑器（桌面端和部署出去的网页）只提交请求。创建、有效期、快照都由 NestJS 的 /wiki/shares 完成。链接发出后不能撤回。
+ * 边界：编辑器（桌面端和部署出去的网页）只提交请求。token 由编辑器生成，创建时交给 NestJS。有效期和快照由 /wiki/shares 完成。链接发出后不能撤回。
  * 桌面端把 /wiki 代理到网关；网页上的 /s/:token 只负责把 NestJS 返回的快照画出来。
  * A 在客户端里分享，B 用浏览器打开已部署网页上的链接。桌面端本机地址不能当作分享链接。
  */
@@ -48,8 +48,10 @@ export type SharedPageView = {
 
 export type ShareDraft = {
   pageId: string;
-  /** 秒。null 表示不过期。 */
-  expiresIn: number | null;
+  /** 编辑器生成的 token。公开地址里的就是这一段。 */
+  token: string;
+  /** 秒。编辑器只传 1 天、7 天或 30 天。 */
+  expiresIn: number;
 };
 
 type CreatedShare = {
@@ -74,6 +76,15 @@ export function shareSiteOrigin(origin = typeof window === "undefined" ? "" : wi
   if (current && !isLocalShareOrigin(current)) return current;
   const configured = ((import.meta.env.VITE_EDITOR_PUBLIC_ORIGIN as string | undefined) || "").replace(/\/$/, "");
   return configured || DEPLOYED_EDITOR_ORIGIN;
+}
+
+/** 32 字节随机数，base64url，不含填充。公开路由只接受字母、数字、下划线和连字符。 */
+export function createShareToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 export function sharePageUrl(token: string): string {
@@ -130,11 +141,13 @@ async function authedShare<T>(session: RemoteSession, method: string, path: stri
   }
 }
 
-export function createShare(session: RemoteSession, draft: ShareDraft): Promise<CreatedShare> {
-  return authedShare<CreatedShare>(session, "POST", "/wiki/shares", {
+export async function createShare(session: RemoteSession, draft: ShareDraft): Promise<CreatedShare> {
+  const created = await authedShare<CreatedShare>(session, "POST", "/wiki/shares", {
     pageId: draft.pageId,
     expiresIn: draft.expiresIn,
+    token: draft.token,
   });
+  return { ...created, token: draft.token };
 }
 
 function displayName(value: unknown): string | null {

@@ -6,15 +6,20 @@ function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>)
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
-function DialogOverlay({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => {
   return (
     <DialogPrimitive.Overlay
+      ref={ref}
       data-slot="dialog-overlay"
       className={cn("fixed inset-0 z-50 bg-black/40", className)}
       {...props}
     />
   )
-}
+})
+DialogOverlay.displayName = "DialogOverlay"
 
 function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (

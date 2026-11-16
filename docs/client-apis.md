@@ -33,7 +33,7 @@
 
 | 方法 | 路径 | 调用处 | 登录 |
 | --- | --- | --- | --- |
-| POST | `/wiki/shares` | `shareStore.ts` 生成链接。body `{ pageId, expiresIn }`，`expiresIn` 为空表示不过期，否则按整天。每一页仍是自己的正文，子页面单独保存，不汇总进父页面 | 用户 JWT |
+| POST | `/wiki/shares` | `shareStore.ts` 点分享时提交。body `{ pageId, expiresIn, token }`。弹窗打开时编辑器已生成 `token` 并显示地址，此时不请求。`expiresIn` 只为 1 天、7 天或 30 天，没有永久。切换有效期会换新 token。点分享才提交并复制。每一页仍是自己的正文，子页面单独保存 | 用户 JWT |
 | GET | `/wiki/shares?pageId=` | `shareStore.ts` 当前页已发出的链接。日期只显示到天，并带分享人 | 用户 JWT |
 | GET | `/wiki/shares/view/:token` | 公开只读页。返回标题、正文、`children`、`sharedBy`，日期只显示到天。链接发出后不能撤回 | 否。链接即凭证 |
 
