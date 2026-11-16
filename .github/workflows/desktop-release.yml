@@ -128,6 +128,7 @@ jobs:
         run: |
           echo "GATEWAY_BASE_URL=https://api.championsea.online" >> "$GITHUB_ENV"
           echo "DESKTOP_GATEWAY_BASE=https://api.championsea.online" >> "$GITHUB_ENV"
+          echo "VITE_EDITOR_PUBLIC_ORIGIN=https://wiki.championsea.online" >> "$GITHUB_ENV"
 
       # macOS：通用二进制（Apple 芯片 + Intel），只打 app，dmg 下一步自己生成
       - name: 打包 macOS

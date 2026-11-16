@@ -8,7 +8,6 @@ import {
   listShares,
   revokeShare,
   sharePageUrl,
-  shareSiteOrigin,
   type ShareLink,
 } from "@/store/shareStore";
 import type { RemoteSession } from "@/store/remoteStore";
@@ -62,12 +61,7 @@ export function ShareDialog({
   }, [session, pageId, t]);
 
   async function copy(token: string) {
-    const url = sharePageUrl(token);
-    if (!url) {
-      setError(t("share.localHint"));
-      return;
-    }
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(sharePageUrl(token));
     setCopied(token);
   }
 
@@ -108,7 +102,6 @@ export function ShareDialog({
             {t("share.description")}
           </DialogDescription>
         </DialogHeader>
-        {shareSiteOrigin() ? null : <p className="text-xs text-muted-foreground">{t("share.localHint")}</p>}
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">{t("share.expiry")}</p>
           <div className="flex flex-wrap gap-2">

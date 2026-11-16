@@ -38,7 +38,7 @@ SSH_OPTS=(-o StrictHostKeyChecking=no -o ConnectTimeout=10)
 
 if [[ "$BUILD" == "1" ]]; then
   echo "▶ 构建 editor web 产物（gateway → ${GATEWAY}）"
-  (cd "$REPO_ROOT" && GATEWAY_BASE_URL="$GATEWAY" pnpm pack:web)
+  (cd "$REPO_ROOT" && GATEWAY_BASE_URL="$GATEWAY" VITE_EDITOR_PUBLIC_ORIGIN="${VITE_EDITOR_PUBLIC_ORIGIN:-https://wiki.championsea.online}" pnpm pack:web)
 fi
 
 if [[ ! -f "$BUNDLE/server.mjs" || ! -d "$BUNDLE/dist" ]]; then

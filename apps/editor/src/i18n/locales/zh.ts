@@ -602,7 +602,6 @@ export const zh = {
     reshareOn: "可再分享",
     reshareOff: "不可再分享",
     child: "再分享",
-    localHint: "还没有配置网页地址 VITE_EDITOR_PUBLIC_ORIGIN。对方要用浏览器打开，链接必须指向已部署的编辑器网页。",
     failed: "分享失败",
     unavailableTitle: "链接不可用",
     unavailable: "这个分享不存在、已过期，或已被撤销。",

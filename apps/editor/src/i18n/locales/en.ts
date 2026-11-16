@@ -604,7 +604,6 @@ export const en: Messages = {
     reshareOn: "Can be shared onward",
     reshareOff: "Cannot be shared onward",
     child: "Shared onward",
-    localHint: "Set VITE_EDITOR_PUBLIC_ORIGIN to the deployed editor site. Recipients open the link in a browser, so it cannot be this computer's address.",
     failed: "Couldn't share",
     unavailableTitle: "Link unavailable",
     unavailable: "This share does not exist, has expired, or was revoked.",

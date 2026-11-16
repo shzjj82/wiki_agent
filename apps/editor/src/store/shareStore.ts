@@ -51,12 +51,14 @@ type CreatedShare = {
   pageId?: string;
 };
 
-/** 桌面端本机地址不能给 B。配了 VITE_EDITOR_PUBLIC_ORIGIN 就用部署网页的域名。 */
+/** 已部署的编辑器网页。桌面端和本地 5174 分享出去的链接指向这里。 */
+const DEPLOYED_EDITOR_ORIGIN = "https://wiki.championsea.online";
+
+/** 当前就是这个网页时用当前域名；桌面端用已部署的地址。VITE_EDITOR_PUBLIC_ORIGIN 只在换域名时覆盖。 */
 export function shareSiteOrigin(origin = typeof window === "undefined" ? "" : window.location.origin): string {
-  if (!origin || isLocalShareOrigin(origin)) {
-    return ((import.meta.env.VITE_EDITOR_PUBLIC_ORIGIN as string | undefined) || "").replace(/\/$/, "");
-  }
-  return origin.replace(/\/$/, "");
+  if (origin && !isLocalShareOrigin(origin)) return origin.replace(/\/$/, "");
+  const configured = ((import.meta.env.VITE_EDITOR_PUBLIC_ORIGIN as string | undefined) || "").replace(/\/$/, "");
+  return configured || DEPLOYED_EDITOR_ORIGIN;
 }
 
 export function sharePageUrl(token: string): string {
