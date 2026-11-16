@@ -19,6 +19,7 @@ import { LanguageSwitch } from "@/components/language-switch";
 import { NotifyBell } from "@/components/notify-bell";
 import { TodoDetailDialog, type TodoDetailTarget } from "@/components/notify-bell/TodoDetailDialog";
 import { PageTree } from "@/components/page-tree";
+import { ShareDialog } from "@/components/share-dialog";
 import { AppUpdateProvider } from "@/components/app-update";
 import { isDesktopApp } from "@/lib/ai/skills";
 import { SettingsMenu } from "@/components/settings-menu";
@@ -208,6 +209,7 @@ export function App() {
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
   const [query, setQuery] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [sharePageId, setSharePageId] = useState<string | null>(null);
   const [syncPlan, setSyncPlan] = useState<SyncPlan | null>(null);
   const [syncStep, setSyncStep] = useState<"summary" | "checklist" | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -1284,6 +1286,7 @@ export function App() {
           onDelete={(id) => void removePage(id)}
           onReparent={(id, parentId) => void movePage(id, parentId)}
           onExport={(id, format) => void exportPage(id, format)}
+          onShare={session ? (id) => setSharePageId(id) : undefined}
         />
         <div className="mt-3 flex flex-col gap-2 border-t border-sidebar-border px-1 pt-3 text-xs text-muted-foreground">
           <div className="flex items-center justify-between gap-2">
@@ -1793,6 +1796,14 @@ export function App() {
           }
           onClose={() => setTeamOpen(false)}
           panel={teamPanel}
+        />
+      ) : null}
+      {session && sharePageId ? (
+        <ShareDialog
+          session={session}
+          pageId={sharePageId}
+          title={pageTitle(nodes.find((node) => node.id === sharePageId)?.title)}
+          onClose={() => setSharePageId(null)}
         />
       ) : null}
       <ChangePasswordDialog

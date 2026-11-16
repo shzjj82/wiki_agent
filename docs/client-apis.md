@@ -27,6 +27,18 @@
 | PUT | `/docs/documents/id/:id/parent` | `remoteStore.ts` 调整父页面，body `{ parentId }` | 用户 JWT |
 | DELETE | `/docs/documents/:id` | `remoteStore.ts` 删除页面 | 用户 JWT |
 
+### 页面分享
+
+这些请求由编辑器转发给 NestJS（`/wiki` 代理），业务在 NestJS 实现，见 `docs/nestjs-share-tasks.md`。编辑器不保存分享。公开页是已部署网页上的 `/s/:token`，页面再向 NestJS 取快照。
+
+| 方法 | 路径 | 调用处 | 登录 |
+| --- | --- | --- | --- |
+| POST | `/wiki/shares` | `shareStore.ts` 生成链接。body `{ pageId, expiresIn, allowReshare }`，`expiresIn` 为空表示不过期 | 用户 JWT |
+| GET | `/wiki/shares?pageId=` | `shareStore.ts` 当前页已发出的链接 | 用户 JWT |
+| DELETE | `/wiki/shares/:token` | `shareStore.ts` 撤销。原始创建者、文档作者可以撤销 | 用户 JWT |
+| GET | `/wiki/shares/view/:token` | 公开只读页 | 否。链接即凭证 |
+| POST | `/wiki/shares/view/:token/reshare` | 公开页再分享。父链接必须允许，新链接不能比父链接更晚过期 | 否。父链接即凭证 |
+
 ### 团队
 
 | 方法 | 路径 | 调用处 | 登录 |

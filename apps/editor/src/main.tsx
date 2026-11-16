@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import "@/i18n";
 import { App } from "./App";
 import { MarkdownImportPage } from "@/components/markdown-import";
+import { SharedPage } from "@/components/shared-page";
 import { isMarkdownRoute } from "@/lib/route";
+import { isShareRoute, shareTokenFromPath } from "@/lib/shareRoute";
 import "./styles/index.css";
 
 function Root() {
@@ -15,6 +17,9 @@ function Root() {
     return () => window.removeEventListener("popstate", sync);
   }, []);
 
+  if (isShareRoute(path)) {
+    return <SharedPage token={shareTokenFromPath(path) ?? ""} />;
+  }
   if (isMarkdownRoute(path)) {
     return <MarkdownImportPage />;
   }

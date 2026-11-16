@@ -66,7 +66,9 @@ function isSpaPath(pathname: string): boolean {
     pathname === APP_PREFIX ||
     pathname.startsWith(`${APP_PREFIX}/`) ||
     pathname === MARKDOWN_PREFIX ||
-    pathname.startsWith(`${MARKDOWN_PREFIX}/`)
+    pathname.startsWith(`${MARKDOWN_PREFIX}/`) ||
+    pathname === "/s" ||
+    pathname.startsWith("/s/")
   );
 }
 

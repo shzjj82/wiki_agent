@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Delete, Down, More, Notes, Plus, Right, ToTop } from "@icon-park/react";
+import { Delete, Down, More, Notes, Plus, Right, Share, ToTop } from "@icon-park/react";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ type Props = {
   onDelete: (id: string) => void;
   onReparent: (id: string, parentId: string | null) => void;
   onExport: (id: string, format: ExportFormat) => void;
+  onShare?: (id: string) => void;
   teamNames?: Record<string, string>;
 };
 
@@ -74,7 +75,7 @@ function filterTree(items: TreeNode[], query: string): TreeNode[] {
   return walk(items);
 }
 
-export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild, onDelete, onReparent, onExport, teamNames = {} }: Props) {
+export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild, onDelete, onReparent, onExport, onShare, teamNames = {} }: Props) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -261,6 +262,19 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
                     <Plus {...iconProps} size={14} />
                     {t("pageTree.addSubpage")}
                   </button>
+                  {onShare ? (
+                    <button
+                      type="button"
+                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+                      onClick={() => {
+                        setMenuId(null);
+                        onShare(node.id);
+                      }}
+                    >
+                      <Share {...iconProps} size={14} />
+                      {t("share.menu")}
+                    </button>
+                  ) : null}
                   <PopoverSeparator />
                   <button
                     type="button"
