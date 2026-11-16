@@ -104,7 +104,7 @@ import {
   saveAttachment,
   type AttachmentData,
 } from "@/store/fileStore";
-import { takePendingPageId } from "@/lib/route";
+import { readAppLocation, takePendingPageId, writeAppLocation } from "@/lib/route";
 
 const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
 const SIDEBAR_WIDTH_KEY = "editor:sidebar-width";
@@ -174,7 +174,6 @@ export function App() {
       占据真实布局空间（在滚动区之后），因此永远不会跟着内容滚动 */
   const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
 
-  // 回到桌面端时收起抽屉，避免残留状态
   useEffect(() => {
     if (!isMobile) {
       setSidebarOpen(false);
@@ -256,6 +255,19 @@ export function App() {
   const saveTimer = useRef(0);
   const pageRef = useRef<EditorPage | null>(null);
   pageRef.current = page;
+
+  const openPageRef = useRef<(id: string, history?: "push" | "replace" | "none") => Promise<void>>(async () => undefined);
+
+  useEffect(() => {
+    const onPop = () => {
+      const loc = readAppLocation();
+      if (loc.pageId && loc.pageId !== pageRef.current?.id) {
+        void openPageRef.current(loc.pageId, "none");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const pageReadOnly = Boolean(
     teamsReady && page?.teamId && !canWriteTeam(teams.find((team) => team.id === page.teamId)?.role),
   );
@@ -308,17 +320,23 @@ export function App() {
 
   useEffect(() => subscribeSession(setSession), []);
 
-  const refreshLocal = useCallback((selectId?: string | null) => {
+  const refreshLocal = useCallback((selectId?: string | null, history: "push" | "replace" = "replace") => {
     const list = listLocal();
     setNodes(list);
-    const id = selectId === undefined ? (pageRef.current?.id ?? list[0]?.id) : (selectId ?? list[0]?.id);
-    const loaded = id ? loadLocal(id) : undefined;
+    let id = selectId === undefined ? (pageRef.current?.id ?? list[0]?.id) : (selectId ?? list[0]?.id);
+    let loaded = id ? loadLocal(id) : undefined;
+    if (!loaded && list[0] && id !== list[0].id) {
+      id = list[0].id;
+      loaded = loadLocal(id);
+    }
     if (!loaded) {
       setPage(null);
+      writeAppLocation(null, history);
       return;
     }
     const healed = withLivePageLinks(loaded, list);
     setPage(healed);
+    writeAppLocation(healed.id, history);
     if (healed !== loaded) {
       saveLocal(healed);
       setNodes(listLocal());
@@ -328,23 +346,34 @@ export function App() {
   /** 退出或换号后，还在路上的云端响应不能再写回界面 */
   const stale = (nextSession: RemoteSession) => sessionRef.current !== nextSession;
 
-  const refreshRemote = useCallback(async (nextSession: RemoteSession, selectId?: string | null) => {
+  const refreshRemote = useCallback(async (nextSession: RemoteSession, selectId?: string | null, history: "push" | "replace" = "replace") => {
     const list = await listRemote(nextSession);
     if (stale(nextSession)) {
       return;
     }
     setNodes(list);
-    const id = selectId === undefined ? (pageRef.current?.id ?? list[0]?.id) : (selectId ?? list[0]?.id);
+    let id = selectId === undefined ? (pageRef.current?.id ?? list[0]?.id) : (selectId ?? list[0]?.id);
     if (!id) {
       setPage(null);
+      writeAppLocation(null, history);
       return;
     }
-    const loaded = await loadRemote(nextSession, id);
+    let loaded: EditorPage;
+    try {
+      loaded = await loadRemote(nextSession, id);
+    } catch (err) {
+      if (stale(nextSession) || !list[0] || id === list[0].id) {
+        throw err;
+      }
+      id = list[0].id;
+      loaded = await loadRemote(nextSession, id);
+    }
     if (stale(nextSession)) {
       return;
     }
     const healed = withLivePageLinks(loaded, list);
     setPage(healed);
+    writeAppLocation(healed.id, history);
     if (healed !== loaded) {
       void saveRemote(nextSession, healed).catch(() => undefined);
     }
@@ -443,7 +472,7 @@ export function App() {
       setTeams([]);
       setTeamsReady(false);
       ensureLocalPages();
-      refreshLocal(takePendingPageId());
+      refreshLocal(readAppLocation().pageId ?? takePendingPageId());
       return;
     }
     const settings = readSyncSettings();
@@ -452,7 +481,7 @@ export function App() {
       setSyncPlan(plan);
       setSyncStep("summary");
     }
-    void refreshRemote(session, takePendingPageId())
+    void refreshRemote(session, readAppLocation().pageId ?? takePendingPageId())
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : t("app.failedToLoadRemotePages"));
       })
@@ -638,8 +667,11 @@ export function App() {
     window.clearTimeout(saveTimer.current);
   }
 
-  async function openPage(id: string) {
+  async function openPage(id: string, history: "push" | "replace" | "none" = "push") {
     setSidebarOpen(false);
+    if (history !== "none") {
+      writeAppLocation(id, pageRef.current?.id === id ? "replace" : history);
+    }
     setError("");
     setReveal(null);
     if (pageRef.current?.id !== id) {
@@ -674,6 +706,7 @@ export function App() {
       void saveRemote(session, healed).catch(() => undefined);
     }
   }
+  openPageRef.current = openPage;
 
   async function createChildLink(): Promise<PageLinkData> {
     const parentId = pageRef.current?.id ?? null;
@@ -717,9 +750,9 @@ export function App() {
         await appendChildLink(parentId, { pageId: created.id, slug: created.id, title: created.title });
       }
       if (session) {
-        await refreshRemote(session, created.id);
+        await refreshRemote(session, created.id, "push");
       } else {
-        refreshLocal(created.id);
+        refreshLocal(created.id, "push");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("app.failedToCreatePage"));

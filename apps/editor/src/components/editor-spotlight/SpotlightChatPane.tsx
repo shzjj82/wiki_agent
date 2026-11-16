@@ -98,7 +98,7 @@ export function SpotlightChatPane({
   };
 
   return (
-    <>
+    <div className="editor-spotlight-chat-body">
       <SoftScrollbar ref={listRef as RefObject<HTMLDivElement>} className="editor-spotlight-chat" contentClassName="editor-spotlight-chat-inner" stickToBottom jumpToBottomLabel={t("common.scrollToBottom")}>
           {bubbles.length === 0 ? (
             <div className="editor-spotlight-chat-empty">
@@ -269,6 +269,6 @@ export function SpotlightChatPane({
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }

@@ -77,13 +77,12 @@ function filterTree(items: TreeNode[], query: string): TreeNode[] {
 
 export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild, onDelete, onReparent, onExport, onShare, teamNames = {} }: Props) {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  /** 默认折叠。当前页和它的上级会展开，刷新后按地址里的页面恢复。 */
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null | "root">(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const draggingRef = useRef<string | null>(null);
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
   const tree = useMemo(() => filterTree(buildTree(nodes), query), [nodes, query]);
   const searching = query.trim().length > 0;
 
@@ -91,26 +90,34 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
     if (!selectedId) {
       return;
     }
-    const byId = new Map(nodesRef.current.map((node) => [node.id, node]));
-    setCollapsed((prev) => {
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    if (!byId.has(selectedId)) {
+      return;
+    }
+    setExpanded((prev) => {
       const next = { ...prev };
-      let current = byId.get(selectedId);
       let changed = false;
+      const mark = (id: string | null | undefined) => {
+        if (!id || next[id]) {
+          return;
+        }
+        next[id] = true;
+        changed = true;
+      };
+      mark(selectedId);
+      let current = byId.get(selectedId);
       const seen = new Set<string>();
       while (current?.parentId && !seen.has(current.id)) {
         seen.add(current.id);
-        if (next[current.parentId]) {
-          next[current.parentId] = false;
-          changed = true;
-        }
+        mark(current.parentId);
         current = byId.get(current.parentId);
       }
       return changed ? next : prev;
     });
-  }, [selectedId]);
+  }, [selectedId, nodes]);
 
   function toggle(id: string) {
-    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
   function clearDrag() {
@@ -162,7 +169,7 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
       return;
     }
     if (parentId) {
-      setCollapsed((prev) => ({ ...prev, [parentId]: false }));
+      setExpanded((prev) => ({ ...prev, [parentId]: true }));
     }
     onReparent(id, parentId);
   }
@@ -171,7 +178,7 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
 
   function renderNodes(items: TreeNode[], depth: number) {
     return items.map((node) => {
-      const open = searching || !collapsed[node.id];
+      const open = searching || expanded[node.id] === true;
       const isDrop = dropId === node.id;
       return (
         <li key={node.id}>
@@ -255,7 +262,7 @@ export function PageTree({ nodes, query = "", selectedId, onOpen, onCreateChild,
                     className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
                     onClick={() => {
                       setMenuId(null);
-                      setCollapsed((prev) => ({ ...prev, [node.id]: false }));
+                      setExpanded((prev) => ({ ...prev, [node.id]: true }));
                       onCreateChild(node.id);
                     }}
                   >

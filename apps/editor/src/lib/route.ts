@@ -27,6 +27,38 @@ export function takePendingPageId(): string | null {
   return id;
 }
 
+/** 当前文档在地址里：`/app/:pageId`。刷新后按这个地址打开对应页面。 */
+export function readAppLocation(href = typeof window === "undefined" ? "http://localhost/app" : window.location.href): {
+  pageId: string | null;
+} {
+  const url = new URL(href, "http://localhost");
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  let pageId: string | null = null;
+  if (path.startsWith("/app/")) {
+    const rest = decodeURIComponent(path.slice("/app/".length));
+    if (rest && rest !== "markdown") {
+      pageId = rest;
+    }
+  }
+  return { pageId };
+}
+
+export function appPagePath(pageId: string | null): string {
+  const id = pageId?.trim();
+  return id ? `/app/${encodeURIComponent(id)}` : "/app";
+}
+
+/** 把当前文档写进地址，刷新后仍打开这一页。 */
+export function writeAppLocation(pageId: string | null, mode: "push" | "replace" = "replace"): void {
+  const next = appPagePath(pageId);
+  const current = `${window.location.pathname.replace(/\/+$/, "") || "/"}${window.location.search}`;
+  if (current === next) {
+    return;
+  }
+  const update = mode === "push" ? window.history.pushState : window.history.replaceState;
+  update.call(window.history, null, "", next);
+}
+
 export function goAppHome(): void {
   const home = appHomePath();
   if (window.location.pathname === home) {
