@@ -1,4 +1,5 @@
 import type { EditorJsBlock } from "@myblog/shared";
+import { normalizeCodeLanguage } from "@/lib/document/codeLint";
 
 function escapeHtml(value: string): string {
   return value
@@ -250,6 +251,15 @@ export function blocksToPreviewMarkdown(blocks: EditorJsBlock[]): string {
         }
         break;
       }
+      case "code": {
+        const code = String(data.code ?? "").replace(/\n$/, "");
+        if (code.trim()) {
+          const language = String(data.language ?? "");
+          const fence = language && language !== "plain" ? language : "";
+          parts.push("```" + fence + "\n" + code + "\n```");
+        }
+        break;
+      }
       case "table": {
         const content = Array.isArray(data.content) ? (data.content as string[][]) : [];
         if (content.length) {
@@ -374,14 +384,12 @@ export function markdownToEditorBlocks(source: string): EditorJsBlock[] {
       continue;
     }
     if (block.kind === "code") {
-      const raw = block.code.trim();
-      if (raw) {
-        const html = raw
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\n/g, "<br>");
-        blocks.push({ type: "paragraph", data: { text: `<code>${html}</code>` } });
+      const code = block.code.replace(/\n$/, "");
+      if (code.trim()) {
+        blocks.push({
+          type: "code",
+          data: { code, language: normalizeCodeLanguage(block.lang) },
+        });
       }
       continue;
     }

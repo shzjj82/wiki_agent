@@ -109,6 +109,9 @@ export function blockIconKey(block: HTMLElement): string {
   if (block.querySelector(".cdx-quote")) {
     return "quote";
   }
+  if (block.querySelector(".cdx-code")) {
+    return "code";
+  }
   if (block.querySelector(".ce-delimiter")) {
     return "line";
   }

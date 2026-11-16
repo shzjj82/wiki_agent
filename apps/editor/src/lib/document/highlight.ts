@@ -52,6 +52,14 @@ for (const [name, language] of Object.entries(LANGUAGES)) {
   hljs.registerLanguage(name, language);
 }
 
+hljs.registerLanguage("html", xml);
+hljs.registerLanguage("js", javascript);
+hljs.registerLanguage("ts", typescript);
+hljs.registerLanguage("py", python);
+hljs.registerLanguage("sh", bash);
+hljs.registerLanguage("shell", bash);
+hljs.registerLanguage("yml", yaml);
+
 /** 返回已转义的 HTML */
 export function highlightCode(source: string, language?: string): string {
   if (language && hljs.getLanguage(language)) {

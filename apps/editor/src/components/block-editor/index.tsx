@@ -20,6 +20,7 @@ import { AttachmentTool } from "./tools/AttachmentTool";
 import { ImageBlockTool, imageBlockData } from "./tools/ImageBlockTool";
 import { TodoBlockTool, type TodoBlockDetailRequest } from "./tools/TodoBlockTool";
 import { VideoBlockTool } from "./tools/VideoBlockTool";
+import { CodeBlockTool } from "./tools/CodeBlockTool";
 import type { AttachmentData } from "@/store/fileStore";
 import { htmlToBlocks } from "@/lib/document/htmlToBlocks";
 import { isImageFile } from "@/lib/document/fileKinds";
@@ -50,7 +51,8 @@ type BlockStyleLabel =
   | "blockEditor.styleBullet"
   | "blockEditor.styleNumbered"
   | "blockEditor.styleTodo"
-  | "blockEditor.styleQuote";
+  | "blockEditor.styleQuote"
+  | "blockEditor.styleCode";
 
 /** 移动端底栏直接摆出来的块样式：点图标即切换，不再弹菜单。key 与 blockIconKey 的返回值一致 */
 const blockStyles: { key: string; icon: string; label: BlockStyleLabel; tool: string; data?: Record<string, unknown> }[] = [
@@ -62,6 +64,7 @@ const blockStyles: { key: string; icon: string; label: BlockStyleLabel; tool: st
   { key: "ol", icon: menuIcons.ol, label: "blockEditor.styleNumbered", tool: "list", data: { style: "ordered" } },
   { key: "todo", icon: menuIcons.todo, label: "blockEditor.styleTodo", tool: "todo" },
   { key: "quote", icon: menuIcons.quote, label: "blockEditor.styleQuote", tool: "quote" },
+  { key: "code", icon: menuIcons.code, label: "blockEditor.styleCode", tool: "code" },
 ];
 
 function imageFilesFromClipboard(data: DataTransfer): File[] {
@@ -275,6 +278,9 @@ export function BlockEditor({
         delimiter: {
           class: Delimiter,
           toolbox: { icon: menuIcons.line },
+        },
+        code: {
+          class: CodeBlockTool as unknown as typeof Header,
         },
         table: {
           class: Table as unknown as typeof Header,

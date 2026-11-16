@@ -52,6 +52,7 @@ export function editorI18n() {
         "Subpage · page": "子页面 · page",
         "File · file": "文件 · file",
         "Image · image": "图片 · image",
+        "Code · code": "代码 · code",
       },
       tools: {
         header: {

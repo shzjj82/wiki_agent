@@ -110,6 +110,9 @@ export function documentText(body: EditorJsDocument): string {
       case "quote":
         parts.push(plain(data.text), plain(data.caption));
         break;
+      case "code":
+        parts.push(String(data.code ?? ""));
+        break;
       case "table":
         parts.push(...((data.content as string[][] | undefined) ?? []).flat().map(plain));
         break;

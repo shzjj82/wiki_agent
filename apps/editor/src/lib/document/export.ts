@@ -252,6 +252,38 @@ function blocksToChildren(doc: EditorJsDocument): FileChild[] {
           }),
         );
         break;
+      case "code": {
+        const code = String(data.code ?? "").replace(/\r\n/g, "\n");
+        if (!code.trim()) {
+          break;
+        }
+        const language = String(data.language ?? "");
+        const lines = code.split("\n");
+        if (language && language !== "plain") {
+          children.push(
+            new Paragraph({
+              shading: { type: ShadingType.CLEAR, fill: WASH },
+              spacing: { before: 120, after: 0 },
+              children: [textRun(language, { size: 16, color: MUTED })],
+            }),
+          );
+        }
+        lines.forEach((line, index) => {
+          children.push(
+            new Paragraph({
+              shading: { type: ShadingType.CLEAR, fill: WASH },
+              spacing: {
+                before: index === 0 && (!language || language === "plain") ? 120 : 0,
+                after: index === lines.length - 1 ? 120 : 0,
+                line: 276,
+                lineRule: LineRuleType.AUTO,
+              },
+              children: [textRun(line || " ", { size: 18 })],
+            }),
+          );
+        });
+        break;
+      }
       case "table": {
         const table = tableFromBlock(data);
         if (table) {

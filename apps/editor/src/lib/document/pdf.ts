@@ -290,6 +290,27 @@ function blocksToContent(doc: EditorJsDocument): PdfNode[] {
           canvas: [{ type: "line", x1: 0, y1: 0, x2: CONTENT_WIDTH, y2: 0, lineWidth: 0.8, lineColor: LINE }],
         });
         break;
+      case "code": {
+        const code = String(data.code ?? "").replace(/\r\n/g, "\n");
+        if (!code.trim()) {
+          break;
+        }
+        const language = String(data.language ?? "");
+        const body: PdfNode[] = [];
+        if (language && language !== "plain") {
+          body.push({ text: language, color: MUTED, fontSize: 9, margin: [0, 0, 0, 4] });
+        }
+        body.push({ text: code, fontSize: 9, preserveLeadingSpaces: true });
+        content.push({
+          margin: [0, 8, 0, 8],
+          table: {
+            widths: ["*"],
+            body: [[{ stack: body, fillColor: WASH, margin: [8, 6, 8, 6] }]],
+          },
+          layout: "noBorders",
+        });
+        break;
+      }
       case "table": {
         const table = tableNode(data);
         if (table) {

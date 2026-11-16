@@ -1,6 +1,7 @@
 import type EditorJS from "@editorjs/editorjs";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { t } from "@/i18n";
+import { normalizeCodeLanguage } from "./codeLint";
 
 /** 从 Notion 编辑器取出块文档（存 posts.body） */
 export async function saveEditor(editor: EditorJS | null): Promise<EditorJsDocument> {
@@ -27,21 +28,10 @@ function scrubFormControls(html: string): string {
 }
 
 function scrubBlockData(block: EditorJsBlock): EditorJsBlock {
-  // AI 若仍返回 code / quote，前端转成段落，杜绝 textarea / 双 cdx-input
   if (block.type === "code") {
-    const raw = String(block.data?.code ?? "")
-      .replace(/\r\n/g, "\n")
-      .trim();
-    if (!raw) {
-      return { type: "paragraph", data: { text: "" } };
-    }
-    const escaped = raw
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/\n/g, "<br>");
-    return { type: "paragraph", data: { text: scrubFormControls(`<code>${escaped}</code>`) } };
+    const code = String(block.data?.code ?? "").replace(/\r\n/g, "\n");
+    const language = normalizeCodeLanguage(String(block.data?.language ?? block.data?.lang ?? ""));
+    return { ...block, type: "code", data: { code, language } };
   }
 
   if (block.type === "quote") {
