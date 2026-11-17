@@ -7,6 +7,8 @@ import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { Button } from "@/components/ui/button";
 import { useVisualViewport } from "@/lib/useKeyboardInset";
 import { useIsMobile } from "@/lib/useMediaQuery";
+import { ShareAccess } from "@/components/shared-page/ShareAccess";
+import { ShareDownloadGuide } from "@/components/shared-page/ShareDownloadGuide";
 import { viewShare, type SharedPageNode, type SharedPageView } from "@/store/shareStore";
 
 const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
@@ -96,10 +98,13 @@ export function SharedPage({ token }: { token: string }) {
 
   if (missing) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-background px-6 text-foreground">
-        <div className="max-w-md space-y-2">
-          <h1 className="break-words text-2xl font-semibold">{t("share.unavailableTitle")}</h1>
-          <p className="break-words text-muted-foreground">{t("share.unavailable")}</p>
+      <main className="flex min-h-svh flex-col bg-background text-foreground">
+        <ShareDownloadGuide />
+        <div className="flex flex-1 items-center justify-center px-6">
+          <div className="max-w-md space-y-2">
+            <h1 className="break-words text-2xl font-semibold">{t("share.unavailableTitle")}</h1>
+            <p className="break-words text-muted-foreground">{t("share.unavailable")}</p>
+          </div>
         </div>
       </main>
     );
@@ -132,7 +137,9 @@ export function SharedPage({ token }: { token: string }) {
         <span className="min-w-0 flex-1 truncate">
           {page ? `${byline}${until ? ` · ${t("share.until", { time: until })}` : ` · ${t("share.noExpiry")}`}` : t("share.loading")}
         </span>
+        {page ? <ShareAccess token={token} /> : null}
       </header>
+      {page ? <ShareDownloadGuide /> : null}
       {current ? (
         <SoftScrollbar className="min-h-0 flex-1" jumpToBottomLabel={t("common.scrollToBottom")}>
           <BlockEditor

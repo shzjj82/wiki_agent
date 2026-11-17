@@ -66,6 +66,13 @@ type CreatedShare = {
 /** 已部署的编辑器网页。桌面端分享出去的链接指向这里。 */
 const DEPLOYED_EDITOR_ORIGIN = "https://wiki.championsea.online";
 
+/** 下载页。页面会按 /version.json 换成当前最新安装包，不写死某一个版本。 */
+export function latestDownloadPageUrl(origin = typeof window === "undefined" ? "" : window.location.origin): string {
+  const current = shareSiteOrigin(origin).replace(/\/$/, "");
+  const base = isLocalShareOrigin(current) ? DEPLOYED_EDITOR_ORIGIN : current;
+  return `${base}/#download`;
+}
+
 /**
  * vite 本地调试用当前地址，这样 /s/:token 能在 5174 打开。
  * 桌面端跑在本机，发出去的链接必须是已部署网页。已经打开生产网页时用当前域名。
@@ -191,6 +198,40 @@ function asNode(value: unknown): SharedPageNode | null {
 export async function listShares(session: RemoteSession, pageId: string): Promise<ShareLink[]> {
   const data = await authedShare<{ shares?: ShareLink[] }>(session, "GET", `/wiki/shares?pageId=${encodeURIComponent(pageId)}`);
   return (data.shares ?? []).map((share) => ({ ...share, sharedBy: displayName(share.sharedBy) }));
+}
+
+export type ShareFavorite = {
+  favorited: boolean;
+  /** 当前登录账号是这篇文档的作者。作者不能收藏自己的文章。 */
+  owned: boolean;
+};
+
+function asFavorite(value: unknown, fallbackSaved: boolean): ShareFavorite {
+  const row = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const owned = row.owned === true;
+  const flagged = row.favorited === true || row.saved === true;
+  const explicit = typeof row.favorited === "boolean" || typeof row.saved === "boolean";
+  return { owned, favorited: owned ? false : explicit ? flagged : fallbackSaved };
+}
+
+/**
+ * 登录后读取这篇分享能不能收藏、以及当前人是不是作者。
+ * GET /wiki/shares/view/:token/favorite → { favorited, owned }
+ * owned 为 true 时作者本人，客户端不提供收藏。
+ */
+export async function readShareFavorite(session: RemoteSession, token: string): Promise<ShareFavorite> {
+  const data = await authedShare<unknown>(session, "GET", `/wiki/shares/view/${encodeURIComponent(token)}/favorite`);
+  return asFavorite(data, false);
+}
+
+/**
+ * 收藏或取消。作者本人时服务端应返回 403 SHARE_OWN_PAGE，且不要写入。
+ * POST 收藏，DELETE 取消。成功体与 GET 相同。
+ */
+export async function writeShareFavorite(session: RemoteSession, token: string, saved: boolean): Promise<ShareFavorite> {
+  const path = `/wiki/shares/view/${encodeURIComponent(token)}/favorite`;
+  const data = await authedShare<unknown>(session, saved ? "POST" : "DELETE", path);
+  return asFavorite(data, saved);
 }
 
 export async function viewShare(token: string): Promise<SharedPageView> {

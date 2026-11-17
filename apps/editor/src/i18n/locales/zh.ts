@@ -641,6 +641,13 @@ export const zh = {
     sharedBy: "{{name}} 分享于 {{time}}",
     subpages: "子页面",
     imageHidden: "这张图片需要登录才能看，公开页不显示。",
+    favorite: "收藏",
+    favorited: "已收藏",
+    favoriteFailed: "收藏没有成功",
+    loginHint: "登录后可以收藏别人分享的文章。自己的文章不能收藏。",
+    downloadGuide: "这是只读分享。下载最新版，可以在自己的电脑里继续使用。",
+    downloadLatest: "下载最新版",
+    downloadLatestVersion: "下载最新版 {{version}}",
   },
 };
 

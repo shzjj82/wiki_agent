@@ -643,5 +643,12 @@ export const en: Messages = {
     sharedBy: "Shared by {{name}} on {{time}}",
     subpages: "Subpages",
     imageHidden: "This image needs a login, so it stays hidden on the public page.",
+    favorite: "Favorite",
+    favorited: "Favorited",
+    favoriteFailed: "Couldn't favorite this page",
+    loginHint: "Log in to favorite pages shared by other people. You can't favorite your own.",
+    downloadGuide: "This is a read-only share. Download the latest version to keep using it on your computer.",
+    downloadLatest: "Download latest",
+    downloadLatestVersion: "Download latest {{version}}",
   },
 };
