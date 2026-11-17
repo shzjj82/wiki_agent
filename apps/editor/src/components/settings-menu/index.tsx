@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Lock, Logout, More, Refresh } from "@icon-park/react";
+import { Lock, Logout, Refresh } from "@icon-park/react";
 import { CheckUpdateSlot } from "@/components/app-update";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import type { SyncSettings } from "@/store/syncSettings";
 const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
 
 type Props = {
+  label: string;
   settings: SyncSettings;
   onChange: (settings: SyncSettings) => void;
   onLogout: () => void;
@@ -26,6 +27,7 @@ type Props = {
 
 /** 只在登录后出现：创建/加入团队、切换团队模式、同步、改密码、退出 */
 export function SettingsMenu({
+  label,
   settings,
   onChange,
   onLogout,
@@ -43,11 +45,17 @@ export function SettingsMenu({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={t("settingsMenu.settings")}>
-          <More {...iconProps} />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-full min-w-0 shrink justify-start px-2 text-left text-xs font-normal text-muted-foreground"
+          title={label}
+        >
+          <span className="min-w-0 truncate">{label}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="w-48">
+      <PopoverContent side="top" align="start" className="w-48">
         <Label className="flex h-8 w-full items-center justify-between gap-2 rounded-md px-2 font-normal hover:bg-muted">
           {t("settingsMenu.allowSync")}
           <Switch checked={settings.enabled} onCheckedChange={(enabled) => onChange({ enabled })} />

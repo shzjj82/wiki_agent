@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type EditorJS from "@editorjs/editorjs";
 import { useTranslation } from "react-i18next";
-import { ArrowCircleUp, CloudStorage, CloseSmall, Delete, Download, Export, HamburgerButton, HardDisk, MoreTwo, People, Plus, Redo, Search, Undo } from "@icon-park/react";
+import { ArrowCircleUp, CloudStorage, CloseSmall, Delete, Download, Export, HamburgerButton, HardDisk, MoreTwo, People, Redo, Search, Undo } from "@icon-park/react";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { BlockEditor, type EditorHistoryApi } from "@/components/block-editor";
 import type { PageLinkData } from "@/components/block-editor/tools/PageLinkTool";
@@ -1287,24 +1287,19 @@ function AppMain() {
             </Button>
           </div>
         ) : null}
-        <div className="mb-3 flex items-center gap-1">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              {...iconProps}
-              size={14}
-              className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("app.search")}
-              aria-label={t("app.search")}
-              className="h-8 bg-background pl-7"
-            />
-          </div>
-          <Button type="button" variant="ghost" size="icon" aria-label={t("common.newPage")} onClick={() => void createPage(null)}>
-            <Plus {...iconProps} />
-          </Button>
+        <div className="relative mb-3">
+          <Search
+            {...iconProps}
+            size={14}
+            className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("app.search")}
+            aria-label={t("app.search")}
+            className="h-8 bg-background pl-7"
+          />
         </div>
         <SidebarSections
           nodes={nodes}
@@ -1321,10 +1316,45 @@ function AppMain() {
           onExport={(id, format) => void exportPage(id, format)}
           onShare={session ? (id) => setSharePageId(id) : undefined}
         />
-        <div className="mt-3 flex flex-col gap-2 border-t border-sidebar-border px-1 pt-3 text-xs text-muted-foreground">
-          <div className="flex items-center justify-between gap-2">
+        <div className="mt-3 flex items-center gap-0.5 border-t border-sidebar-border px-1 pt-3 text-xs text-muted-foreground">
           {session ? (
-            <span className="min-w-0 flex-1 truncate px-2">{session.username}</span>
+            <>
+              <NotifyBell session={session} onWriteTodo={(todo) => writeTodoPage(todo)} onOpenPage={(id) => openPage(id)} />
+              <div className="min-w-0 flex-1">
+                <SettingsMenu
+                  label={session.username}
+                  settings={syncSettings}
+                  onChange={updateSyncSettings}
+                  onLogout={logout}
+                  onChangePassword={() => setPasswordOpen(true)}
+                  onCreateTeam={() => {
+                    setTeamPanel("create");
+                    setTeamOpen(true);
+                  }}
+                  onJoinTeam={() => {
+                    setTeamPanel("join");
+                    setTeamOpen(true);
+                  }}
+                  teamMode={activeTeamId !== null}
+                  canSwitchTeam={teams.length > 0}
+                  canManageTeam={canManageTeam(teams.find((team) => team.id === activeTeamId)?.role)}
+                  onManageTeam={() => setTeamManageOpen(true)}
+                  onToggleTeamMode={() => {
+                    if (teams.length === 0) {
+                      return;
+                    }
+                    if (activeTeamId) {
+                      writeActiveTeamId(null);
+                      setActiveTeamId(null);
+                      return;
+                    }
+                    const next = teams[0];
+                    writeActiveTeamId(next.id);
+                    setActiveTeamId(next.id);
+                  }}
+                />
+              </div>
+            </>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-1">
               <Button type="button" variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" onClick={() => setAuthOpen(true)}>
@@ -1345,40 +1375,6 @@ function AppMain() {
               ) : null}
             </div>
           )}
-          {session ? (
-            <SettingsMenu
-              settings={syncSettings}
-              onChange={updateSyncSettings}
-              onLogout={logout}
-              onChangePassword={() => setPasswordOpen(true)}
-              onCreateTeam={() => {
-                setTeamPanel("create");
-                setTeamOpen(true);
-              }}
-              onJoinTeam={() => {
-                setTeamPanel("join");
-                setTeamOpen(true);
-              }}
-              teamMode={activeTeamId !== null}
-              canSwitchTeam={teams.length > 0}
-              canManageTeam={canManageTeam(teams.find((team) => team.id === activeTeamId)?.role)}
-              onManageTeam={() => setTeamManageOpen(true)}
-              onToggleTeamMode={() => {
-                if (teams.length === 0) {
-                  return;
-                }
-                if (activeTeamId) {
-                  writeActiveTeamId(null);
-                  setActiveTeamId(null);
-                  return;
-                }
-                const next = teams[0];
-                writeActiveTeamId(next.id);
-                setActiveTeamId(next.id);
-              }}
-            />
-          ) : null}
-          </div>
         </div>
         <div
           role="separator"
@@ -1510,7 +1506,6 @@ function AppMain() {
               </Button>
             ) : null}
             <LanguageSwitch onChange={(locale) => void switchLocale(locale)} />
-            <NotifyBell session={session} onWriteTodo={(todo) => writeTodoPage(todo)} onOpenPage={(id) => openPage(id)} />
           </span>
           {/* 移动端：更多菜单 + AI */}
           <span className="inline-flex shrink-0 items-center gap-1 sm:hidden">
@@ -1591,7 +1586,6 @@ function AppMain() {
                 {t("work.title")}
               </Button>
             ) : null}
-            <NotifyBell session={session} onWriteTodo={(todo) => writeTodoPage(todo)} onOpenPage={(id) => openPage(id)} />
           </span>
         </header>
         <FileDropZone
