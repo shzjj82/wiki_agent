@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Down, Plus, Right, Share, Star } from "@icon-park/react";
 import { useTranslation } from "react-i18next";
 import { PageTree } from "@/components/page-tree";
@@ -88,7 +88,7 @@ type Props = TreeHandlers & {
   shareEpoch?: number;
 };
 
-export function SidebarSections({
+function SidebarSectionsInner({
   nodes,
   teams,
   query = "",
@@ -165,7 +165,11 @@ export function SidebarSections({
     });
   }
 
-  const treeProps: TreeHandlers = {
+  function emptyHint(text: string): ReactNode {
+    return <p className="px-2 py-2 text-xs text-muted-foreground">{text}</p>;
+  }
+
+  const treeShared = {
     selectedId,
     query,
     onOpen,
@@ -174,11 +178,7 @@ export function SidebarSections({
     onReparent,
     onExport,
     onShare,
-  };
-
-  function emptyHint(text: string): ReactNode {
-    return <p className="px-2 py-2 text-xs text-muted-foreground">{text}</p>;
-  }
+  } satisfies TreeHandlers;
 
   return (
     <SoftScrollbar className="min-h-0 flex-1" contentClassName="flex flex-col gap-3 pb-2">
@@ -194,7 +194,7 @@ export function SidebarSections({
         />
         {isOpen("personal") ? (
           personal.length > 0 || query.trim() ? (
-            <PageTree {...treeProps} nodes={personal} embedded />
+            <PageTree {...treeShared} nodes={personal} embedded />
           ) : (
             emptyHint(t("sidebar.emptyPersonal"))
           )
@@ -299,7 +299,7 @@ export function SidebarSections({
             />
             {isOpen(key) ? (
               list.length > 0 || query.trim() ? (
-                <PageTree {...treeProps} nodes={list} embedded />
+                <PageTree {...treeShared} nodes={list} embedded />
               ) : (
                 emptyHint(t("sidebar.emptyTeam"))
               )
@@ -310,3 +310,5 @@ export function SidebarSections({
     </SoftScrollbar>
   );
 }
+
+export const SidebarSections = memo(SidebarSectionsInner);

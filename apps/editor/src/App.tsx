@@ -107,6 +107,7 @@ import {
 import { readAppLocation, takePendingPageId, writeAppLocation } from "@/lib/route";
 
 const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const EMPTY_TEAMS: TeamInfo[] = [];
 const SIDEBAR_WIDTH_KEY = "editor:sidebar-width";
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 480;
@@ -196,6 +197,12 @@ function AppMain() {
   const [editorEpoch, setEditorEpoch] = useState(0);
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
   const [query, setQuery] = useState("");
+  /** 侧栏过滤用防抖后的关键字，避免每个字都重建整棵树 */
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSidebarQuery(query), 200);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [sharePageId, setSharePageId] = useState<string | null>(null);
   const [shareEpoch, setShareEpoch] = useState(0);
@@ -245,7 +252,14 @@ function AppMain() {
   sidebarWidthRef.current = sidebarWidth;
   const saveTimer = useRef(0);
   const pageRef = useRef<EditorPage | null>(null);
-  pageRef.current = page;
+  /** 正文编辑只写 pageRef，避免 setPage；此标记防止渲染时用过期 page state 盖掉草稿 */
+  const draftDirtyRef = useRef(false);
+  if (page?.id !== pageRef.current?.id) {
+    draftDirtyRef.current = false;
+    pageRef.current = page;
+  } else if (!draftDirtyRef.current) {
+    pageRef.current = page;
+  }
 
   const openPageRef = useRef<(id: string, history?: "push" | "replace" | "none") => Promise<void>>(async () => undefined);
 
@@ -928,16 +942,50 @@ function AppMain() {
     }
   }, [queuedDrop, editorReady, page?.id]);
 
+  function patchSidebarNode(page: EditorPage) {
+    setNodes((prev) => {
+      let changed = false;
+      const next = prev.map((node) => {
+        if (node.id !== page.id) {
+          return node;
+        }
+        if (
+          node.title === page.title &&
+          node.updatedAt === page.updatedAt &&
+          node.parentId === page.parentId &&
+          (node.teamId ?? null) === (page.teamId ?? null)
+        ) {
+          return node;
+        }
+        changed = true;
+        return {
+          id: page.id,
+          title: page.title,
+          parentId: page.parentId,
+          updatedAt: page.updatedAt,
+          teamId: page.teamId,
+        };
+      });
+      return changed ? next : prev;
+    });
+  }
+
   function onEdit(body: EditorJsDocument) {
     const current = pageRef.current;
     if (!current || readOnlyRef.current) {
       return;
     }
-    const next = { ...current, body, title: titleFromBody(body) };
-    setPage(next);
-    setNodes((prev) => prev.map((node) => (node.id === next.id ? { ...node, title: next.title } : node)));
+    const title = titleFromBody(body);
+    const next = { ...current, body, title };
+    // 正文编辑只更新 ref，避免整壳因 setPage 重渲；标题变了才同步侧栏
+    draftDirtyRef.current = true;
+    pageRef.current = next;
+    if (title !== current.title) {
+      setPage(next);
+      setNodes((prev) => prev.map((node) => (node.id === next.id ? { ...node, title: next.title } : node)));
+    }
     window.clearTimeout(saveTimer.current);
-    setHint(t("app.saving"));
+    setHint((prev) => (prev === t("app.saving") ? prev : t("app.saving")));
     saveTimer.current = window.setTimeout(() => void persist(next), 700);
   }
 
@@ -959,23 +1007,26 @@ function AppMain() {
       if (!session) {
         const saved = saveLocal(next);
         if (pageRef.current?.id === viewingId && viewingId === next.id) {
+          draftDirtyRef.current = false;
+          pageRef.current = saved;
           setPage(saved);
         }
-        setNodes(listLocal());
+        patchSidebarNode(saved);
       } else {
         const { body } = await promoteDocument(session, next.body);
         const saved = await saveRemote(session, { ...next, body });
         if (saved.parentId && pageRef.current?.id !== saved.parentId) {
           await mirrorParentLink(session, saved).catch(() => undefined);
         }
-        const list = await listRemote(session);
         if (stale(session)) {
           return true;
         }
         if (pageRef.current?.id === next.id) {
+          draftDirtyRef.current = false;
+          pageRef.current = saved;
           setPage(saved);
         }
-        setNodes(list);
+        patchSidebarNode(saved);
       }
       setHint(t("app.saved"));
       setError("");
@@ -1239,6 +1290,31 @@ function AppMain() {
     window.addEventListener("pointerup", stop);
   }
 
+  const sidebarHandlers = useRef({
+    openPage,
+    createPage,
+    removePage,
+    movePage,
+    exportPage,
+    canWriteTeamId: (teamId: string) => canWriteTeam(teams.find((team) => team.id === teamId)?.role),
+  });
+  sidebarHandlers.current = {
+    openPage,
+    createPage,
+    removePage,
+    movePage,
+    exportPage,
+    canWriteTeamId: (teamId: string) => canWriteTeam(teams.find((team) => team.id === teamId)?.role),
+  };
+  const onSidebarOpen = useCallback((id: string) => void sidebarHandlers.current.openPage(id), []);
+  const onSidebarCreateChild = useCallback((parentId: string) => void sidebarHandlers.current.createPage(parentId), []);
+  const onSidebarCreateInSection = useCallback((teamId: string | null) => void sidebarHandlers.current.createPage(null, teamId), []);
+  const onSidebarDelete = useCallback((id: string) => sidebarHandlers.current.removePage(id), []);
+  const onSidebarReparent = useCallback((id: string, parentId: string | null) => void sidebarHandlers.current.movePage(id, parentId), []);
+  const onSidebarExport = useCallback((id: string, format: ExportFormat) => void sidebarHandlers.current.exportPage(id, format), []);
+  const onSidebarShare = useCallback((id: string) => setSharePageId(id), []);
+  const canCreateInTeam = useCallback((teamId: string) => sidebarHandlers.current.canWriteTeamId(teamId), []);
+
   return (
     <div
       /* 整个外壳钉在“可视视口”上（top 跟随 offsetTop、height = 可视高度）：
@@ -1303,19 +1379,19 @@ function AppMain() {
         </div>
         <SidebarSections
           nodes={nodes}
-          teams={session ? teams : []}
-          query={query}
+          teams={session ? teams : EMPTY_TEAMS}
+          query={sidebarQuery}
           selectedId={page?.id}
           shareEpoch={shareEpoch}
           session={session}
-          canCreateInTeam={(teamId) => canWriteTeam(teams.find((team) => team.id === teamId)?.role)}
-          onCreateInSection={(teamId) => void createPage(null, teamId)}
-          onOpen={(id) => void openPage(id)}
-          onCreateChild={(parentId) => void createPage(parentId)}
-          onDelete={(id) => void removePage(id)}
-          onReparent={(id, parentId) => void movePage(id, parentId)}
-          onExport={(id, format) => void exportPage(id, format)}
-          onShare={session ? (id) => setSharePageId(id) : undefined}
+          canCreateInTeam={canCreateInTeam}
+          onCreateInSection={onSidebarCreateInSection}
+          onOpen={onSidebarOpen}
+          onCreateChild={onSidebarCreateChild}
+          onDelete={onSidebarDelete}
+          onReparent={onSidebarReparent}
+          onExport={onSidebarExport}
+          onShare={session ? onSidebarShare : undefined}
         />
         <div className="mt-3 flex items-center gap-0.5 border-t border-sidebar-border px-1 pt-3 text-xs text-muted-foreground">
           {session ? (

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Delete, Down, More, Notes, Plus, Right, Share, ToTop } from "@icon-park/react";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/components/ui/popover";
 import { pageTitle } from "@/i18n";
 import type { ExportFormat } from "@/lib/document/export";
@@ -77,7 +76,133 @@ function filterTree(items: TreeNode[], query: string): TreeNode[] {
   return walk(items);
 }
 
-export function PageTree({
+type RowMenuProps = {
+  nodeId: string;
+  open: boolean;
+  selected: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreateChild: (parentId: string) => void;
+  onDelete: (id: string) => void;
+  onExport: (id: string, format: ExportFormat) => void;
+  onShare?: (id: string) => void;
+  onExpand: (id: string) => void;
+};
+
+/** 菜单默认不挂 Popover，点开才挂，避免每行常驻 Radix 开销 */
+const RowMenu = memo(function RowMenu({
+  nodeId,
+  open,
+  selected,
+  onOpenChange,
+  onCreateChild,
+  onDelete,
+  onExport,
+  onShare,
+  onExpand,
+}: RowMenuProps) {
+  const { t } = useTranslation();
+  const triggerClass =
+    open || selected
+      ? "relative z-20 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+      : "relative z-20 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sidebar-accent hover:text-foreground focus-visible:opacity-100 max-sm:opacity-100";
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={triggerClass}
+        aria-label={t("pageTree.more")}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenChange(true);
+        }}
+      >
+        <More {...iconProps} size={14} />
+      </button>
+    );
+  }
+
+  return (
+    <Popover open onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={triggerClass}
+          aria-label={t("pageTree.more")}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <More {...iconProps} size={14} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent>
+        <button
+          type="button"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+          onClick={() => {
+            onOpenChange(false);
+            onExpand(nodeId);
+            onCreateChild(nodeId);
+          }}
+        >
+          <Plus {...iconProps} size={14} />
+          {t("pageTree.addSubpage")}
+        </button>
+        {onShare ? (
+          <button
+            type="button"
+            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+            onClick={() => {
+              onOpenChange(false);
+              onShare(nodeId);
+            }}
+          >
+            <Share {...iconProps} size={14} />
+            {t("share.menu")}
+          </button>
+        ) : null}
+        <PopoverSeparator />
+        <button
+          type="button"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+          onClick={() => {
+            onOpenChange(false);
+            onExport(nodeId, "pdf");
+          }}
+        >
+          <FileTypeIcon type="pdf" />
+          {t("common.exportPdf")}
+        </button>
+        <button
+          type="button"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+          onClick={() => {
+            onOpenChange(false);
+            onExport(nodeId, "word");
+          }}
+        >
+          <FileTypeIcon type="word" />
+          {t("common.exportWord")}
+        </button>
+        <PopoverSeparator />
+        <button
+          type="button"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-destructive hover:bg-muted"
+          onClick={() => {
+            onOpenChange(false);
+            onDelete(nodeId);
+          }}
+        >
+          <Delete {...iconProps} size={14} />
+          {t("common.delete")}
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+});
+
+function PageTreeInner({
   nodes,
   query = "",
   selectedId,
@@ -97,6 +222,7 @@ export function PageTree({
   const [dropId, setDropId] = useState<string | null | "root">(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const draggingRef = useRef<string | null>(null);
+  const blockedRef = useRef<Set<string> | null>(null);
   const tree = useMemo(() => filterTree(buildTree(nodes), query), [nodes, query]);
   const searching = query.trim().length > 0;
 
@@ -130,32 +256,43 @@ export function PageTree({
     });
   }, [selectedId, nodes]);
 
-  function toggle(id: string) {
+  const toggle = useCallback((id: string) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
+  }, []);
 
-  function clearDrag() {
+  const expandNode = useCallback((id: string) => {
+    setExpanded((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+  }, []);
+
+  const clearDrag = useCallback(() => {
     draggingRef.current = null;
+    blockedRef.current = null;
     setDraggingId(null);
     setDropId(null);
-  }
+  }, []);
 
-  function canDrop(targetId: string, sourceId: string) {
-    if (sourceId === targetId) {
-      return false;
-    }
-    const source = nodes.find((node) => node.id === sourceId);
-    if (!source || source.parentId === targetId) {
-      return false;
-    }
-    return !blockedIds(nodes, sourceId).has(targetId);
-  }
+  const canDrop = useCallback(
+    (targetId: string, sourceId: string) => {
+      if (sourceId === targetId) {
+        return false;
+      }
+      const source = nodes.find((node) => node.id === sourceId);
+      if (!source || source.parentId === targetId) {
+        return false;
+      }
+      const blocked = blockedRef.current ?? blockedIds(nodes, sourceId);
+      blockedRef.current = blocked;
+      return !blocked.has(targetId);
+    },
+    [nodes],
+  );
 
   function beginDrag(event: DragEvent, id: string) {
     event.dataTransfer.setData(DRAG_MIME, id);
     event.dataTransfer.setData("text/plain", id);
     event.dataTransfer.effectAllowed = "move";
     draggingRef.current = id;
+    blockedRef.current = blockedIds(nodes, id);
     window.requestAnimationFrame(() => {
       if (draggingRef.current === id) {
         setDraggingId(id);
@@ -188,12 +325,17 @@ export function PageTree({
     onReparent(id, parentId);
   }
 
+  const onMenuOpenChange = useCallback((id: string, open: boolean) => {
+    setMenuId(open ? id : null);
+  }, []);
+
   const dragging = draggingId ? nodes.find((node) => node.id === draggingId) : undefined;
 
   function renderNodes(items: TreeNode[], depth: number) {
     return items.map((node) => {
       const open = searching || expanded[node.id] === true;
       const isDrop = dropId === node.id;
+      const selected = selectedId === node.id;
       return (
         <li key={node.id}>
           <div
@@ -213,7 +355,7 @@ export function PageTree({
               event.preventDefault();
               event.stopPropagation();
               event.dataTransfer.dropEffect = "move";
-              setDropId(node.id);
+              setDropId((prev) => (prev === node.id ? prev : node.id));
             }}
             onDragLeave={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -223,27 +365,25 @@ export function PageTree({
             onDrop={(event) => acceptDrop(event, node.id)}
           >
             {node.children.length > 0 ? (
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon-xs"
+                className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                 aria-label={open ? t("pageTree.collapse") : t("pageTree.expand")}
                 onClick={() => toggle(node.id)}
               >
                 {open ? <Down {...iconProps} size={14} /> : <Right {...iconProps} size={14} />}
-              </Button>
+              </button>
             ) : (
               <span className="size-6 shrink-0" aria-hidden />
             )}
-            <Button
+            <button
               type="button"
-              variant="ghost"
               draggable
               title={t("pageTree.dragToMove")}
               className={
-                selectedId === node.id
-                  ? "h-8 min-w-0 flex-1 cursor-grab justify-start! text-left bg-sidebar-accent px-2 font-medium active:cursor-grabbing"
-                  : "h-8 min-w-0 flex-1 cursor-grab justify-start! text-left px-2 font-medium active:cursor-grabbing"
+                selected
+                  ? "flex h-8 min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md bg-sidebar-accent px-2 text-left text-sm font-medium active:cursor-grabbing"
+                  : "flex h-8 min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 text-left text-sm font-medium hover:bg-sidebar-accent/70 active:cursor-grabbing"
               }
               onClick={() => onOpen(node.id)}
               onDragStart={(event) => beginDrag(event, node.id)}
@@ -254,88 +394,18 @@ export function PageTree({
               {node.teamId && teamNames[node.teamId] ? (
                 <span className="max-w-16 shrink-0 truncate text-[10px] text-muted-foreground">{teamNames[node.teamId]}</span>
               ) : null}
-            </Button>
-            <Popover open={menuId === node.id} onOpenChange={(next) => setMenuId(next ? node.id : null)}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className={
-                    menuId === node.id || selectedId === node.id
-                      ? "relative z-20 shrink-0"
-                      : "relative z-20 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100"
-                  }
-                  aria-label={t("pageTree.more")}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <More {...iconProps} size={14} />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent>
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                  onClick={() => {
-                    setMenuId(null);
-                    setExpanded((prev) => ({ ...prev, [node.id]: true }));
-                    onCreateChild(node.id);
-                  }}
-                >
-                  <Plus {...iconProps} size={14} />
-                  {t("pageTree.addSubpage")}
-                </button>
-                {onShare ? (
-                  <button
-                    type="button"
-                    className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                    onClick={() => {
-                      setMenuId(null);
-                      onShare(node.id);
-                    }}
-                  >
-                    <Share {...iconProps} size={14} />
-                    {t("share.menu")}
-                  </button>
-                ) : null}
-                <PopoverSeparator />
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                  onClick={() => {
-                    setMenuId(null);
-                    onExport(node.id, "pdf");
-                  }}
-                >
-                  <FileTypeIcon type="pdf" />
-                  {t("common.exportPdf")}
-                </button>
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-                  onClick={() => {
-                    setMenuId(null);
-                    onExport(node.id, "word");
-                  }}
-                >
-                  <FileTypeIcon type="word" />
-                  {t("common.exportWord")}
-                </button>
-                <PopoverSeparator />
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-destructive hover:bg-muted"
-                  onClick={() => {
-                    setMenuId(null);
-                    onDelete(node.id);
-                  }}
-                >
-                  <Delete {...iconProps} size={14} />
-                  {t("common.delete")}
-                </button>
-              </PopoverContent>
-            </Popover>
+            </button>
+            <RowMenu
+              nodeId={node.id}
+              open={menuId === node.id}
+              selected={selected}
+              onOpenChange={(next) => onMenuOpenChange(node.id, next)}
+              onCreateChild={onCreateChild}
+              onDelete={onDelete}
+              onExport={onExport}
+              onShare={onShare}
+              onExpand={expandNode}
+            />
           </div>
           {node.children.length > 0 && open ? <ul className="flex flex-col gap-0.5">{renderNodes(node.children, depth + 1)}</ul> : null}
           {draggingId === node.id ? <span className="sr-only">{t("pageTree.dragging")}</span> : null}
@@ -357,7 +427,7 @@ export function PageTree({
             event.preventDefault();
             event.stopPropagation();
             event.dataTransfer.dropEffect = "move";
-            setDropId("root");
+            setDropId((prev) => (prev === "root" ? prev : "root"));
           }}
           onDragLeave={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -390,3 +460,5 @@ export function PageTree({
     </div>
   );
 }
+
+export const PageTree = memo(PageTreeInner);

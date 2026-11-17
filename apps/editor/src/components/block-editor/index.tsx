@@ -220,6 +220,9 @@ export function BlockEditor({
   const [removedToast, setRemovedToast] = useState<{ count: number } | null>(null);
   const blockCountRef = useRef(doc.blocks?.length ?? 0);
   const toastTimerRef = useRef(0);
+  /** 打字时节流全量 save；增删块立刻 save */
+  const changeTimerRef = useRef(0);
+  const CHANGE_SAVE_MS = 160;
 
   useEffect(() => {
     const holder = holderRef.current;
@@ -359,28 +362,45 @@ export function BlockEditor({
           window.setTimeout(() => revealText(holder, pending.text), 60);
         }
       },
-      async onChange(api) {
+      onChange(api) {
         if (!alive) {
           return;
         }
-        const saved = (await api.saver.save()) as EditorJsDocument;
-        if (!alive) {
+        const count = api.blocks.getBlocksCount();
+        const structural = count !== blockCountRef.current;
+        const flush = () => {
+          window.clearTimeout(changeTimerRef.current);
+          changeTimerRef.current = 0;
+          void api.saver.save().then((raw) => {
+            if (!alive) {
+              return;
+            }
+            const saved = raw as EditorJsDocument;
+            onChangeRef.current(saved);
+            // 撤销 / 重做是我们自己 render 回去的，不能又记一笔
+            if (!applyingRef.current) {
+              history.commit(saved);
+              const before = blockCountRef.current;
+              const after = saved.blocks.length;
+              blockCountRef.current = after;
+              // 块变少了就是删除：弹一条「撤销」，底栏收起来也还能救回来
+              if (after < before) {
+                setRemovedToast({ count: before - after });
+                window.clearTimeout(toastTimerRef.current);
+                toastTimerRef.current = window.setTimeout(() => setRemovedToast(null), 6000);
+              }
+            } else {
+              blockCountRef.current = saved.blocks.length;
+            }
+          });
+        };
+        // 结构变化或撤销回放：立刻落盘；纯打字节流，少做昂贵的整篇 save
+        if (structural || applyingRef.current) {
+          flush();
           return;
         }
-        onChangeRef.current(saved);
-        // 撤销 / 重做是我们自己 render 回去的，不能又记一笔
-        if (!applyingRef.current) {
-          history.commit(saved);
-          const before = blockCountRef.current;
-          const after = saved.blocks.length;
-          blockCountRef.current = after;
-          // 块变少了就是删除：弹一条「撤销」，底栏收起来也还能救回来
-          if (after < before) {
-            setRemovedToast({ count: before - after });
-            window.clearTimeout(toastTimerRef.current);
-            toastTimerRef.current = window.setTimeout(() => setRemovedToast(null), 6000);
-          }
-        }
+        window.clearTimeout(changeTimerRef.current);
+        changeTimerRef.current = window.setTimeout(flush, CHANGE_SAVE_MS);
       },
     });
 
@@ -452,6 +472,8 @@ export function BlockEditor({
       unbindToolbar();
       holder.removeEventListener("paste", onPaste, true);
       window.clearTimeout(toastTimerRef.current);
+      window.clearTimeout(changeTimerRef.current);
+      changeTimerRef.current = 0;
       onReadyRef.current?.(null);
       onHistoryRef.current?.(null);
       editorInstanceRef.current = null;
