@@ -320,8 +320,8 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
           <PopoverContent
             side="top"
-            align="start"
-            className="flex w-[min(22.5rem,calc(100vw-1.5rem))] flex-col overflow-hidden p-0 origin-bottom-left duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 motion-reduce:animate-none"
+            align="end"
+            className="flex w-[min(22.5rem,calc(100vw-1.5rem))] flex-col overflow-hidden p-0 origin-bottom-right duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 motion-reduce:animate-none"
           >
             {panel}
           </PopoverContent>

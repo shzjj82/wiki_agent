@@ -1319,7 +1319,6 @@ function AppMain() {
         <div className="mt-3 flex items-center gap-0.5 border-t border-sidebar-border px-1 pt-3 text-xs text-muted-foreground">
           {session ? (
             <>
-              <NotifyBell session={session} onWriteTodo={(todo) => writeTodoPage(todo)} onOpenPage={(id) => openPage(id)} />
               <div className="min-w-0 flex-1">
                 <SettingsMenu
                   label={session.username}
@@ -1354,6 +1353,7 @@ function AppMain() {
                   }}
                 />
               </div>
+              <NotifyBell session={session} onWriteTodo={(todo) => writeTodoPage(todo)} onOpenPage={(id) => openPage(id)} />
             </>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-1">

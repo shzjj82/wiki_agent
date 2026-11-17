@@ -168,6 +168,7 @@ export function SidebarSections({
         ) : null}
       </section>
 
+      {shares.length > 0 ? (
       <section className="flex flex-col gap-0.5">
         <SectionHeader
           title={t("sidebar.shares")}
@@ -177,9 +178,6 @@ export function SidebarSections({
           collapseLabel={t("sidebar.collapse")}
         />
         {isOpen("shares") ? (
-          shares.length === 0 ? (
-            emptyHint(t("sidebar.emptyShares"))
-          ) : (
             <ul className="flex flex-col gap-0.5">
               {shares.map((share) => (
                 <li key={share.token}>
@@ -214,9 +212,9 @@ export function SidebarSections({
                 </li>
               ))}
             </ul>
-          )
         ) : null}
       </section>
+      ) : null}
 
       {teams.map((team) => {
         const key = `team:${team.id}`;

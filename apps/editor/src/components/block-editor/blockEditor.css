@@ -1536,8 +1536,8 @@ html.is-image-resizing * {
 }
 
 .cdx-code__stage {
-  max-height: 440px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .cdx-code__sheet {
