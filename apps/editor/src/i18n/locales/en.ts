@@ -649,6 +649,5 @@ export const en: Messages = {
     favoriteFailed: "Couldn't favorite this page",
     loginHint: "Log in to favorite pages shared by other people. You can't favorite your own.",
     downloadLatest: "Download latest",
-    downloadLatestVersion: "Download latest {{version}}",
   },
 };

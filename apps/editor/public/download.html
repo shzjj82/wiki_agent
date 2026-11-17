@@ -507,17 +507,18 @@
           });
         }
 
-        function initPicker(versions) {
+        function initPicker(versions, latestVersion) {
           var row = document.querySelector(".ver-row");
           var select = document.querySelector(".js-ver");
           if (!row || !select) return;
           // 只有一个版本时不摆这个控件，省得点了没反应
           if (versions.length <= 1) return;
 
-          versions.forEach(function (item, index) {
+          versions.forEach(function (item) {
             var option = document.createElement("option");
             option.value = item.version;
-            option.textContent = "v" + item.version + (index === 0 ? "（最新）" : "");
+            option.textContent = "v" + item.version + (item.version === latestVersion ? "（最新）" : "");
+            if (item.version === latestVersion) option.selected = true;
             select.appendChild(option);
           });
           row.hidden = false;
@@ -543,9 +544,17 @@
               data.versions && data.versions.length
                 ? data.versions
                 : [{ version: data.version, files: data.files }];
-            setFoot(data.version);
-            render(versions[0].files);
-            initPicker(versions);
+            var latest = null;
+            versions.forEach(function (item) {
+              if (latest) return;
+              var ready = (item.files || []).some(function (file) { return file && file.available && file.url; });
+              if (ready) latest = item;
+            });
+            if (!latest) latest = versions[0];
+            var latestVersion = latest.version;
+            setFoot(latestVersion);
+            render(latest.files);
+            initPicker(versions, latestVersion);
           })
           .catch(function () {});
       })();

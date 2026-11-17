@@ -11,7 +11,7 @@ import {
   writeShareFavorite,
   type ShareFavorite,
 } from "@/store/shareStore";
-import { loadSession, loginRemote, registerRemote, type RemoteSession } from "@/store/remoteStore";
+import { loadSession, loginRemote, logoutRemote, registerRemote, type RemoteSession } from "@/store/remoteStore";
 import { ShareDownloadGuide } from "@/components/shared-page/ShareDownloadGuide";
 
 const iconProps = { strokeWidth: 3, size: 16 };
@@ -67,6 +67,13 @@ export function ShareAccess({ token }: { token: string }) {
     }
   }
 
+  async function logout() {
+    await logoutRemote(session);
+    setSession(null);
+    setFavorite(null);
+    setError("");
+  }
+
   const showFavorite = !session || favorite?.owned !== true;
 
   return (
@@ -88,7 +95,12 @@ export function ShareAccess({ token }: { token: string }) {
             </Button>
           ) : null}
           {session ? (
-            <span className="max-w-32 truncate px-2 text-xs text-foreground">{session.username}</span>
+            <>
+              <span className="max-w-32 truncate px-2 text-xs text-foreground">{session.username}</span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => void logout()}>
+                {t("settingsMenu.logOut")}
+              </Button>
+            </>
           ) : (
             <Button type="button" variant="outline" size="sm" onClick={() => setAuthOpen(true)}>
               {t("app.logIn")}

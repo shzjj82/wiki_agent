@@ -647,7 +647,6 @@ export const zh = {
     favoriteFailed: "收藏没有成功",
     loginHint: "登录后可以收藏别人分享的文章。自己的文章不能收藏。",
     downloadLatest: "下载最新版",
-    downloadLatestVersion: "下载最新版 {{version}}",
   },
 };
 
