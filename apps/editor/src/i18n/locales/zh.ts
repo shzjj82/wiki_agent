@@ -353,6 +353,7 @@ export const zh = {
   },
   sidebar: {
     personal: "个人文章",
+    favorites: "收藏",
     shares: "分享预览",
     emptyPersonal: "还没有个人文章",
     emptyShares: "分享后会出现在这里",
@@ -645,7 +646,6 @@ export const zh = {
     favorited: "已收藏",
     favoriteFailed: "收藏没有成功",
     loginHint: "登录后可以收藏别人分享的文章。自己的文章不能收藏。",
-    downloadGuide: "这是只读分享。下载最新版，可以在自己的电脑里继续使用。",
     downloadLatest: "下载最新版",
     downloadLatestVersion: "下载最新版 {{version}}",
   },

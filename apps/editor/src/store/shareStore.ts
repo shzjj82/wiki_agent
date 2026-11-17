@@ -234,6 +234,33 @@ export async function writeShareFavorite(session: RemoteSession, token: string, 
   return asFavorite(data, saved);
 }
 
+export type ShareFavoriteItem = {
+  token: string;
+  title: string;
+  sharedBy: string | null;
+};
+
+function asFavoriteItem(value: unknown): ShareFavoriteItem | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const token = typeof row.token === "string" ? row.token.trim() : "";
+  if (!token) return null;
+  const title = typeof row.title === "string" ? row.title.trim() : "";
+  return { token, title, sharedBy: displayName(row.sharedBy ?? row.sharer) };
+}
+
+/**
+ * 当前账号收藏过的、仍然有效的分享。不含正文。
+ * GET /wiki/shares/favorites → { favorites: [{ token, title, sharedBy, sharedAt, expiresAt, favorited }] }
+ */
+export async function listShareFavorites(session: RemoteSession): Promise<ShareFavoriteItem[]> {
+  const data = await authedShare<unknown>(session, "GET", "/wiki/shares/favorites");
+  const row = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+  const raw = Array.isArray(data) ? data : row?.favorites ?? row?.items ?? row?.shares;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(asFavoriteItem).filter((item): item is ShareFavoriteItem => item !== null);
+}
+
 export async function viewShare(token: string): Promise<SharedPageView> {
   const data = await publicShare<Record<string, unknown>>("GET", `/wiki/shares/view/${encodeURIComponent(token)}`);
   const rawChildren = Array.isArray(data.children) ? data.children : Array.isArray(data.pages) ? data.pages : [];

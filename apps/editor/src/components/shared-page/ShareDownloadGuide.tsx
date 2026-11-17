@@ -54,16 +54,13 @@ export function ShareDownloadGuide() {
   const label = version ? t("share.downloadLatestVersion", { version }) : t("share.downloadLatest");
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:px-6">
-      <p className="min-w-0 flex-1">{t("share.downloadGuide")}</p>
-      <a
-        href={href}
-        className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-foreground px-2.5 py-1.5 font-medium text-background"
-        {...(href === pageUrl ? {} : { download: "" })}
-      >
-        <Download {...iconProps} />
-        {label}
-      </a>
-    </div>
+    <a
+      href={href}
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[0.8rem] font-medium text-foreground hover:bg-muted"
+      {...(href === pageUrl ? {} : { download: "" })}
+    >
+      <Download {...iconProps} />
+      {label}
+    </a>
   );
 }

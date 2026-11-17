@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Down, Plus, Right, Share } from "@icon-park/react";
+import { Down, Plus, Right, Share, Star } from "@icon-park/react";
 import { useTranslation } from "react-i18next";
 import { PageTree } from "@/components/page-tree";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
@@ -8,6 +8,8 @@ import type { ExportFormat } from "@/lib/document/export";
 import { pageTitle } from "@/i18n";
 import type { PageNode } from "@/store/localStore";
 import { listRememberedShares, sharePreviewUrl, type RememberedShare } from "@/store/shareMemory";
+import { listShareFavorites, type ShareFavoriteItem } from "@/store/shareStore";
+import type { RemoteSession } from "@/store/remoteStore";
 import type { TeamInfo } from "@/store/teamStore";
 
 const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 14 };
@@ -75,6 +77,7 @@ type TreeHandlers = {
   onReparent: (id: string, parentId: string | null) => void;
   onExport: (id: string, format: ExportFormat) => void;
   onShare?: (id: string) => void;
+  session?: RemoteSession | null;
 };
 
 type Props = TreeHandlers & {
@@ -99,16 +102,46 @@ export function SidebarSections({
   onExport,
   onShare,
   shareEpoch = 0,
+  session = null,
 }: Props) {
   const { t } = useTranslation();
   const [openMap, setOpenMap] = useState<SectionOpen>(() => readSectionOpen());
   const [shares, setShares] = useState<RememberedShare[]>(() => listRememberedShares());
+  const [favorites, setFavorites] = useState<ShareFavoriteItem[]>([]);
 
   useEffect(() => {
     setShares(listRememberedShares());
   }, [shareEpoch]);
 
+  useEffect(() => {
+    if (!session) {
+      setFavorites([]);
+      return;
+    }
+    let gone = false;
+    const load = () => {
+      void listShareFavorites(session)
+        .then((list) => {
+          if (!gone) setFavorites(list);
+        })
+        .catch(() => {
+          if (!gone) setFavorites([]);
+        });
+    };
+    load();
+    window.addEventListener("focus", load);
+    return () => {
+      gone = true;
+      window.removeEventListener("focus", load);
+    };
+  }, [session]);
+
   const personal = useMemo(() => nodes.filter((node) => !node.teamId), [nodes]);
+  const needle = query.trim().toLowerCase();
+  const visibleFavorites = useMemo(() => {
+    if (!needle) return favorites;
+    return favorites.filter((item) => `${item.title} ${item.sharedBy ?? ""}`.toLowerCase().includes(needle));
+  }, [favorites, needle]);
   const byTeam = useMemo(() => {
     const map = new Map<string, PageNode[]>();
     for (const team of teams) {
@@ -167,6 +200,40 @@ export function SidebarSections({
           )
         ) : null}
       </section>
+
+      {visibleFavorites.length > 0 ? (
+        <section className="flex flex-col gap-0.5">
+          <SectionHeader
+            title={t("sidebar.favorites")}
+            open={isOpen("favorites")}
+            onToggle={() => toggle("favorites")}
+            expandLabel={t("sidebar.expand")}
+            collapseLabel={t("sidebar.collapse")}
+          />
+          {isOpen("favorites") ? (
+            <ul className="flex flex-col gap-0.5">
+              {visibleFavorites.map((item) => (
+                <li key={item.token}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 w-full justify-start! px-2 text-left font-medium"
+                    title={item.sharedBy ? `${pageTitle(item.title)} · ${item.sharedBy}` : sharePreviewUrl(item.token)}
+                    onClick={() => {
+                      const url = sharePreviewUrl(item.token);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <span className="size-6 shrink-0" aria-hidden />
+                    <Star {...iconProps} theme="filled" size={16} />
+                    <span className="min-w-0 flex-1 truncate text-left">{pageTitle(item.title)}</span>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
 
       {shares.length > 0 ? (
       <section className="flex flex-col gap-0.5">

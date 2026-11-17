@@ -12,6 +12,7 @@ import {
   type ShareFavorite,
 } from "@/store/shareStore";
 import { loadSession, loginRemote, registerRemote, type RemoteSession } from "@/store/remoteStore";
+import { ShareDownloadGuide } from "@/components/shared-page/ShareDownloadGuide";
 
 const iconProps = { strokeWidth: 3, size: 16 };
 
@@ -72,6 +73,7 @@ export function ShareAccess({ token }: { token: string }) {
     <>
       <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
         <span className="inline-flex items-center gap-1">
+          <ShareDownloadGuide />
           {showFavorite ? (
             <Button
               type="button"

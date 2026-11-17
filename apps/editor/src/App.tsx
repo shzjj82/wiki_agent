@@ -1307,6 +1307,7 @@ function AppMain() {
           query={query}
           selectedId={page?.id}
           shareEpoch={shareEpoch}
+          session={session}
           canCreateInTeam={(teamId) => canWriteTeam(teams.find((team) => team.id === teamId)?.role)}
           onCreateInSection={(teamId) => void createPage(null, teamId)}
           onOpen={(id) => void openPage(id)}

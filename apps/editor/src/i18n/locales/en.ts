@@ -355,6 +355,7 @@ export const en: Messages = {
   },
   sidebar: {
     personal: "Personal",
+    favorites: "Favorites",
     shares: "Shared preview",
     emptyPersonal: "No personal pages yet",
     emptyShares: "Shared links will show up here",
@@ -647,7 +648,6 @@ export const en: Messages = {
     favorited: "Favorited",
     favoriteFailed: "Couldn't favorite this page",
     loginHint: "Log in to favorite pages shared by other people. You can't favorite your own.",
-    downloadGuide: "This is a read-only share. Download the latest version to keep using it on your computer.",
     downloadLatest: "Download latest",
     downloadLatestVersion: "Download latest {{version}}",
   },

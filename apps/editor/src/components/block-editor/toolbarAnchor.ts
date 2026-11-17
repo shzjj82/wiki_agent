@@ -56,11 +56,25 @@ function todoHeadBox(block: HTMLElement): DOMRect | null {
   return rect.height > 0 ? rect : null;
 }
 
+/** 代码块可能很长，移动手柄对齐顶栏，停在卡片左上角。 */
+function codeHeadBox(block: HTMLElement): DOMRect | null {
+  const head = block.querySelector<HTMLElement>(".cdx-code__top");
+  if (!head) {
+    return null;
+  }
+  const rect = head.getBoundingClientRect();
+  return rect.height > 0 ? rect : null;
+}
+
 /** 第一行文字的实际盒子。没有文字时仍按这一行的中心对齐；图片等内容则对齐整块中心。 */
 function firstLineBox(block: HTMLElement): DOMRect | null {
   const todo = todoHeadBox(block);
   if (todo) {
     return todo;
+  }
+  const code = codeHeadBox(block);
+  if (code) {
+    return code;
   }
   const editable = block.querySelector<HTMLElement>("[contenteditable='true']");
   if (editable) {
