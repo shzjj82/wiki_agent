@@ -67,7 +67,7 @@ export function FileDropZone({ hasPage, className, children, onDrop }: Props) {
         }
       }}
     >
-      <SoftScrollbar className="min-h-0 flex-1" contentClassName="flex min-h-full flex-col" jumpToBottomLabel={t("common.scrollToBottom")}>
+      <SoftScrollbar className="min-h-0 flex-1" jumpToBottomLabel={t("common.scrollToBottom")}>
         {children}
       </SoftScrollbar>
       {active ? (

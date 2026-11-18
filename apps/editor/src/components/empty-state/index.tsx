@@ -29,7 +29,7 @@ function Illustration() {
 export function EmptyState({ hasPages, onCreate }: Props) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
       <button
         type="button"
         className="rounded-2xl p-2 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-foreground"
