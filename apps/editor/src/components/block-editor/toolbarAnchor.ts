@@ -1,3 +1,4 @@
+import { lucideSvg } from "@/lib/lucideSvg";
 import { menuIcons } from "./menuIcons";
 
 function caretBlock(holder: HTMLElement): HTMLElement | null {
@@ -103,7 +104,7 @@ const BLOCK_ICONS: Record<string, string> = {
   file: menuIcons.file,
   page: menuIcons.page,
   ai: menuIcons.ai,
-  video: `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M8 12h24v24H8z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M32 20l8-4v16l-8-4z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>`,
+  video: lucideSvg("video", 16),
 };
 
 export function blockIconKey(block: HTMLElement): string {

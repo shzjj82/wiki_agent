@@ -1,12 +1,11 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useEffect, useState } from "react";
-import { Check, Close, Paperclip, Plus } from "@icon-park/react";
+import { Check, Paperclip, Plus, X } from "lucide-react";
 import { BubbleAttachments, PendingAttachments } from "@/components/ai/ChatAttachments";
 import type { DraftInsert } from "@/components/ai/useSpotlightChat";
 import { Button } from "@/components/ui/button";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { AI_FILE_ACCEPT, type ChatBubble, type LocalAttachment } from "@/lib/aiChat";
-import { iconParkOutline } from "@/lib/iconPark";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -123,7 +122,7 @@ export function SpotlightChatPane({
                     aria-label={on ? "取消选择这段" : "选择这段"}
                     onClick={() => toggle(item.id)}
                   >
-                    {on ? <Check {...iconParkOutline} size={12} /> : null}
+                    {on ? <Check size={12} /> : null}
                   </button>
                 ) : null}
                 <div className="editor-spotlight-bubble-main">
@@ -143,7 +142,7 @@ export function SpotlightChatPane({
                       disabled={Boolean(insertingId) || sending}
                       onClick={() => void onInsertDirect(item)}
                     >
-                      <Plus {...iconParkOutline} size={14} />
+                      <Plus size={14} />
                       {insertingId === item.id ? "写入中…" : "加入到内容"}
                     </Button>
                   </div>
@@ -201,7 +200,7 @@ export function SpotlightChatPane({
             aria-label="清除划选"
             onClick={() => setQuote("")}
           >
-            <Close {...iconParkOutline} size={12} />
+            <X size={12} />
           </button>
         </div>
       ) : null}
@@ -237,7 +236,7 @@ export function SpotlightChatPane({
           aria-label="添加图片或文本"
           onClick={() => fileRef.current?.click()}
         >
-          <Paperclip {...iconParkOutline} size={16} />
+          <Paperclip size={16} />
         </Button>
         <span className="editor-spotlight-foot-hint">
           {picking ? "勾选要整理的对话" : "Enter 发送 · Esc 关闭"}

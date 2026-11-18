@@ -230,7 +230,6 @@
           <a href="#data">数据</a>
         </nav>
         <span class="nav-cta">
-          <button type="button" class="btn btn-ghost btn-sm" id="pwa-install" hidden>添加到桌面</button>
           <a class="btn btn-primary btn-sm" href="/app">打开 wiki-agent</a>
         </span>
       </div>
@@ -570,37 +569,9 @@
       })();
 
       (function () {
-        var button = document.getElementById("pwa-install");
-        if (!button) return;
-        var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-        if (standalone) return;
-        var deferred = null;
-        window.addEventListener("beforeinstallprompt", function (event) {
-          event.preventDefault();
-          deferred = event;
-          button.hidden = false;
-        });
-        window.addEventListener("appinstalled", function () {
-          deferred = null;
-          button.hidden = true;
-        });
-        if (window.isSecureContext && "serviceWorker" in navigator) {
-          window.addEventListener("load", function () {
-            navigator.serviceWorker.register("/sw.js").catch(function () {});
-          });
-        }
-        button.addEventListener("click", function () {
-          if (!deferred) return;
-          var promptEvent = deferred;
-          deferred = null;
-          button.hidden = true;
-          promptEvent.prompt().then(function () {
-            return promptEvent.userChoice;
-          }).then(function (choice) {
-            if (!choice || choice.outcome === "accepted") return;
-            deferred = promptEvent;
-            button.hidden = false;
-          });
+        if (!window.isSecureContext || !("serviceWorker" in navigator)) return;
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js").catch(function () {});
         });
       })();
     </script>

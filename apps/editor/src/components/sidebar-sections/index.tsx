@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Down, More, Plus, Right, Share, Star } from "@icon-park/react";
+import { ChevronDown, ChevronRight, Ellipsis, Plus, Share2, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageTree } from "@/components/page-tree";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
@@ -14,7 +14,7 @@ import { listShareFavorites, type ShareFavoriteItem } from "@/store/shareStore";
 import type { RemoteSession } from "@/store/remoteStore";
 import { canManageTeam, type TeamInfo } from "@/store/teamStore";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 14 };
+const iconProps = { size: 14 };
 const SECTION_KEY = "editor:sidebar-section-open";
 
 type SectionOpen = Record<string, boolean>;
@@ -72,7 +72,7 @@ function MoreMenu({
           className={hidden ? "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100" : undefined}
           onClick={(event) => event.stopPropagation()}
         >
-          <More {...iconProps} />
+          <Ellipsis {...iconProps} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-40">
@@ -134,7 +134,7 @@ function SectionHeader({
       {leading}
       {foldable ? (
         <Button type="button" variant="ghost" size="icon-xs" aria-expanded={open} aria-label={open ? collapseLabel : expandLabel} onClick={onToggle}>
-          {open ? <Down {...iconProps} /> : <Right {...iconProps} />}
+          {open ? <ChevronDown {...iconProps} /> : <ChevronRight {...iconProps} />}
         </Button>
       ) : (
         <Button type="button" variant="ghost" size="icon-xs" tabIndex={-1} aria-hidden className="pointer-events-none invisible" />
@@ -324,7 +324,7 @@ function SidebarSectionsInner({
                     }}
                   >
                     <span className="size-6 shrink-0" aria-hidden />
-                    <Star {...iconProps} theme="filled" size={16} />
+                    <Star {...iconProps} className="fill-current" size={16} />
                     <span className="min-w-0 flex-1 truncate text-left">{pageTitle(item.title)}</span>
                   </Button>
                 </li>
@@ -361,7 +361,7 @@ function SidebarSectionsInner({
                         }
                       }}
                     >
-                      <Share {...iconProps} size={16} />
+                      <Share2 {...iconProps} size={16} />
                       <span className="min-w-0 flex-1 truncate text-left">{pageTitle(share.title)}</span>
                     </Button>
                     <Button
@@ -372,7 +372,7 @@ function SidebarSectionsInner({
                       aria-label={t("sidebar.openSource")}
                       onClick={() => onOpen(share.pageId)}
                     >
-                      <Right {...iconProps} />
+                      <ChevronRight {...iconProps} />
                     </Button>
                   </div>
                 </li>

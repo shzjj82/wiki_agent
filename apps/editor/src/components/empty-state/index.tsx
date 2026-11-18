@@ -1,4 +1,4 @@
-import { Plus } from "@icon-park/react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 
@@ -29,7 +29,7 @@ function Illustration() {
 export function EmptyState({ hasPages, onCreate }: Props) {
   const { t } = useTranslation();
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-4 px-6 pt-10 pb-[12vh] text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <button
         type="button"
         className="rounded-2xl p-2 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-foreground"
@@ -49,7 +49,7 @@ export function EmptyState({ hasPages, onCreate }: Props) {
         </p>
       </div>
       <Button type="button" variant="outline" size="sm" onClick={onCreate}>
-        <Plus theme="outline" strokeWidth={3} size={16} />
+        <Plus size={16} />
         {t("common.newPage")}
       </Button>
     </div>

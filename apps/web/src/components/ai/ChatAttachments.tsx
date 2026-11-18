@@ -1,9 +1,8 @@
-import { Close, FileText, Pic } from "@icon-park/react";
+import { FileText, Image, X } from "lucide-react";
 import {
   downloadTextAttachment,
   type LocalAttachment,
 } from "@/lib/aiChat";
-import { iconParkOutline } from "@/lib/iconPark";
 
 type PendingProps = {
   items: LocalAttachment[];
@@ -21,14 +20,14 @@ export function PendingAttachments({ items, onRemove }: PendingProps) {
         <span key={item.id} className="editor-spotlight-attach-chip">
           <span className="editor-spotlight-attach-icon" aria-hidden>
             {item.kind === "image" ? (
-              <Pic {...iconParkOutline} size={14} />
+              <Image size={14} />
             ) : (
-              <FileText {...iconParkOutline} size={14} />
+              <FileText size={14} />
             )}
           </span>
           <span className="truncate">{item.name}</span>
           <button type="button" aria-label={`移除 ${item.name}`} onClick={() => onRemove(item.id)}>
-            <Close {...iconParkOutline} size={12} />
+            <X size={12} />
           </button>
         </span>
       ))}
@@ -59,7 +58,7 @@ export function BubbleAttachments({ items }: BubbleProps) {
             title={`下载 ${file.name}`}
           >
             <span className="editor-spotlight-bubble-attach-icon" aria-hidden>
-              <Pic {...iconParkOutline} size={16} />
+              <Image size={16} />
             </span>
             <span className="truncate">{file.name}</span>
           </a>
@@ -72,7 +71,7 @@ export function BubbleAttachments({ items }: BubbleProps) {
             onClick={() => downloadTextAttachment(file)}
           >
             <span className="editor-spotlight-bubble-attach-icon" aria-hidden>
-              <FileText {...iconParkOutline} size={16} />
+              <FileText size={16} />
             </span>
             <span className="truncate">{file.name}</span>
           </button>

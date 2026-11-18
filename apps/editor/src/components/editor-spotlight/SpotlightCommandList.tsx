@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { Comment, Notes } from "@icon-park/react";
-import { iconParkOutline } from "@/lib/iconPark";
+import { FileText, MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +44,7 @@ export function SpotlightCommandList({ items, active, loading, onActiveChange, o
                 onClick={() => onSelect(item)}
               >
                 <span className="editor-spotlight-item-icon" aria-hidden>
-                  {item.kind === "page" ? <Notes {...iconParkOutline} size={18} /> : <Comment {...iconParkOutline} size={28} />}
+                  {item.kind === "page" ? <FileText size={18} /> : <MessageSquare size={28} />}
                 </span>
                 <span className="editor-spotlight-item-copy">
                   <span className="editor-spotlight-item-title">{item.title}</span>

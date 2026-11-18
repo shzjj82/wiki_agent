@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Close, Download } from "@icon-park/react";
+import { Download, X } from "lucide-react";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { loadAttachment, type AttachmentData } from "@/store/fileStore";
 import type { RemoteSession } from "@/store/remoteStore";
 import "./fileViewer.css";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 const MAX_CODE_CHARS = 1_000_000;
 const MAX_SHEET_ROWS = 1000;
 const MAX_SHEET_COLS = 100;
@@ -120,7 +120,7 @@ export function FileViewer({ file, session, className, onClose, onLoaded }: Prop
       className={cn("flex h-full min-h-0 min-w-0 flex-col border-l border-border bg-background", className)}
       style={{
         width: isMobile ? "100%" : width,
-        // 铺满屏时避开刘海 / Home 指示条（非刘海设备 env() 为 0，无副作用）
+        // 铺满屏时避开刘海 / House 指示条（非刘海设备 env() 为 0，无副作用）
         ...(isMobile
           ? {
               paddingTop: "env(safe-area-inset-top)",
@@ -154,7 +154,7 @@ export function FileViewer({ file, session, className, onClose, onLoaded }: Prop
           <Download {...iconProps} />
         </Button>
         <Button type="button" variant="ghost" size="icon" aria-label={t("attachment.close")} onClick={onClose}>
-          <Close {...iconProps} />
+          <X {...iconProps} />
         </Button>
       </header>
       <div className={cn("relative min-h-0 flex-1", resizing && "pointer-events-none select-none")}>

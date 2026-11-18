@@ -1,7 +1,7 @@
 "use client";
 
 import { SITE_DESCRIPTION } from "@myblog/shared";
-import { ArrowLeft } from "@icon-park/react";
+import { ArrowLeft } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Seo } from "@/components/Seo";
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
-import { iconParkOutline } from "@/lib/iconPark";
 import { useTheme } from "@/lib/theme";
 import "@/admin.css";
 
@@ -183,7 +182,7 @@ export function LoginPage() {
               href="/"
               className="mt-4 flex items-center justify-center gap-1.5 text-center text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
             >
-              <ArrowLeft {...iconParkOutline} size={14} aria-hidden />
+              <ArrowLeft size={14} aria-hidden />
               回到小岛日记
             </a>
           </CardContent>

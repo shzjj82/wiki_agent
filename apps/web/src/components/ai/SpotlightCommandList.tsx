@@ -1,5 +1,4 @@
-import { Robot } from "@icon-park/react";
-import { iconParkOutline } from "@/lib/iconPark";
+import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type SpotlightCommandItem = {
@@ -33,7 +32,7 @@ export function SpotlightCommandList({ items, active, onActiveChange, onSelect }
                 onClick={() => onSelect(item)}
               >
                 <span className="editor-spotlight-item-icon" aria-hidden>
-                  <Robot {...iconParkOutline} size={28} />
+                  <Bot size={28} />
                 </span>
                 <span className="editor-spotlight-item-copy">
                   <span className="editor-spotlight-item-title">{item.title}</span>

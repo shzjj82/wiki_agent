@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Close } from "@icon-park/react";
+import { X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -184,7 +184,7 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
       <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
         <SheetTitle>{shown.name}</SheetTitle>
         <Button type="button" variant="ghost" size="icon" aria-label={t("team.close")} onClick={onClose}>
-          <Close theme="outline" strokeWidth={3} size={16} />
+          <X size={16} />
         </Button>
       </header>
       <Tabs defaultValue="details" className="min-h-0 flex-1 gap-4 p-5">

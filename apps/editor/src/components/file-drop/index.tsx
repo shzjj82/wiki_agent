@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Upload } from "@icon-park/react";
+import { Upload } from "lucide-react";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { cn } from "@/lib/utils";
 
@@ -67,13 +67,13 @@ export function FileDropZone({ hasPage, className, children, onDrop }: Props) {
         }
       }}
     >
-      <SoftScrollbar className="min-h-0 flex-1" jumpToBottomLabel={t("common.scrollToBottom")}>
+      <SoftScrollbar className="min-h-0 flex-1" contentClassName="flex min-h-full flex-col" jumpToBottomLabel={t("common.scrollToBottom")}>
         {children}
       </SoftScrollbar>
       {active ? (
         <div className="pointer-events-none absolute inset-3 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/30 bg-background/85">
           <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-            <Upload theme="outline" strokeWidth={3} size={18} />
+            <Upload size={18} />
             {hasPage ? t("fileDrop.hint") : t("fileDrop.hintNoPage")}
           </span>
         </div>

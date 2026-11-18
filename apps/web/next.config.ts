@@ -51,7 +51,7 @@ const lessLoader = {
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
-  transpilePackages: ["animal-island-ui", "@icon-park/react", "@myblog/shared"],
+  transpilePackages: ["animal-island-ui", "@myblog/shared"],
   poweredByHeader: false,
   // /api 走 rewrite 直连 Express，避免 App Router 的 [...path] 跟着整站编译（dev 里可卡 10–30s，浏览器会 Failed to fetch）
   // Docker 构建时必须 INTERNAL_API_URL=http://api:3001（见 Dockerfile）

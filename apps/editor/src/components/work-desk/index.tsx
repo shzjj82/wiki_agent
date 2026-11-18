@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Close, Send } from "@icon-park/react";
+import { Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { ChatMarkdown } from "@/components/editor-spotlight/ChatMarkdown";
@@ -9,7 +9,6 @@ import { aiErrorMessage, uid, type ChatBubble } from "@/lib/ai/chat";
 import { extractSkills, skillPreview } from "@/lib/ai/skills";
 import { captureLook, observeSkill, skillKey } from "@/lib/work/observe";
 import { extractDeliverable, takeLooks, takeQuestions, WORK_SYSTEM } from "@/lib/work/task";
-import { iconParkOutline } from "@/lib/iconPark";
 import { useTranslation } from "react-i18next";
 
 type WorkBubble = ChatBubble & { result?: { id: string; title: string }; shot?: string };
@@ -284,7 +283,7 @@ export function WorkDesk({ open, focusToken, loggedIn, onClose, onLogin, onDeliv
       >
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{t("work.title")}</span>
         <Button type="button" variant="ghost" size="icon" aria-label={t("work.close")} onClick={onClose}>
-          <Close {...iconParkOutline} size={16} />
+          <X size={16} />
         </Button>
       </header>
 
@@ -352,7 +351,7 @@ export function WorkDesk({ open, focusToken, loggedIn, onClose, onLogin, onDeliv
             />
             <div className="flex justify-end px-1">
               <Button type="submit" size="icon-sm" className="rounded-full" disabled={sending || !prompt.trim()} aria-label={t("work.send")}>
-                <Send {...iconParkOutline} size={15} />
+                <Send size={15} />
               </Button>
             </div>
           </div>

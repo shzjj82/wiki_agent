@@ -1,7 +1,7 @@
 "use client";
 
 import { SITE_DESCRIPTION, SITE_NAME, starterArticleDocument, type PostListItem } from "@myblog/shared";
-import { ExpandLeft, Home, Logout, MenuFold, MenuUnfold, TagOne } from "@icon-park/react";
+import { House, LogOut, PanelLeft, PanelLeftClose, PanelLeftOpen, Tag } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
 import {
@@ -19,7 +19,6 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { iconParkOutline } from "@/lib/iconPark";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { PageTree } from "@/workspace/PageTree";
@@ -320,7 +319,7 @@ export function WorkspaceLayout({ children }: { children: ReactNode }) {
                 aria-label={collapsed ? "展开侧栏" : "收起侧栏"}
                 title={collapsed ? "展开" : "收起"}
               >
-                {collapsed ? <MenuUnfold {...iconParkOutline} size={18} /> : <MenuFold {...iconParkOutline} size={18} />}
+                {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
               </button>
               {!collapsed ? (
                 <Link
@@ -388,7 +387,7 @@ export function WorkspaceLayout({ children }: { children: ReactNode }) {
               className="md:hidden"
               onClick={() => setMobileTreeOpen(true)}
             >
-              <ExpandLeft {...iconParkOutline} size={16} />
+              <PanelLeft size={16} />
               页面
             </Button>
             <div className="ml-auto flex items-center gap-3">
@@ -410,17 +409,17 @@ export function WorkspaceLayout({ children }: { children: ReactNode }) {
                 onClick={() => setTagManagerOpen(true)}
                 title="标签管理"
               >
-                <TagOne {...iconParkOutline} size={16} />
+                <Tag size={16} />
                 标签
               </Button>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/" title="回前台">
-                  <Home {...iconParkOutline} size={16} />
+                  <House size={16} />
                   前台
                 </Link>
               </Button>
               <Button variant="outline" size="sm" onClick={() => void leave()} title="退出">
-                <Logout {...iconParkOutline} size={15} />
+                <LogOut size={15} />
                 退出
               </Button>
             </div>

@@ -5,7 +5,7 @@ import {
   type Category,
   type SiteSkillColor,
 } from "@myblog/shared";
-import { Close, Plus } from "@icon-park/react";
+import { Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useCategories } from "@/lib/categories";
-import { iconParkOutline } from "@/lib/iconPark";
 import { skillColorHex } from "@/lib/skillColors";
 import { cn } from "@/lib/utils";
 
@@ -198,7 +197,7 @@ export function PublishDialog({
                     onClick={() => toggle(slug)}
                   >
                     {cat?.name ?? slug}
-                    <Close {...iconParkOutline} size={12} aria-hidden />
+                    <X size={12} aria-hidden />
                   </button>
                 );
               })}
@@ -229,7 +228,7 @@ export function PublishDialog({
               disabled={creating || !draft.trim()}
               onClick={() => void addDraft()}
             >
-              <Plus {...iconParkOutline} size={14} className="mr-1" />
+              <Plus size={14} className="mr-1" />
               {creating ? "创建中…" : "添加"}
             </Button>
           </div>

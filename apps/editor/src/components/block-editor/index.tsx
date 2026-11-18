@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CloseSmall, DownC, More, Plus, Redo, Undo } from "@icon-park/react";
+import { ChevronDown, Ellipsis, Plus, Redo2, Undo2, X } from "lucide-react";
 import EditorJS from "@editorjs/editorjs";
 import Delimiter from "@editorjs/delimiter";
 import Header from "@editorjs/header";
@@ -709,7 +709,7 @@ export function BlockEditor({
   /** 代码块不提供正文样式快捷键：那些转换对代码没有意义 */
   const showStyleShortcuts = blockKind !== "code";
   const mobileStyles = embed ? blockStyles.filter((item) => item.key !== "todo") : blockStyles;
-  const barIconProps = { theme: "outline" as const, strokeWidth: 3, size: 20 };
+  const barIconProps = { size: 20 };
   const barButtonClass =
     "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg text-foreground/70 transition-colors active:bg-muted active:text-foreground";
   /* 提示条贴着可视视口底部；键盘开着时让出底栏的高度 */
@@ -776,7 +776,7 @@ export function BlockEditor({
                     window.clearTimeout(toastTimerRef.current);
                   }}
                 >
-                  <CloseSmall theme="outline" strokeWidth={3} size={16} />
+                  <X size={16} />
                 </button>
               </div>
             </div>,
@@ -809,7 +809,7 @@ export function BlockEditor({
                 onMouseDown={keepEditorFocus}
                 onClick={handleUndo}
               >
-                <Undo {...barIconProps} />
+                <Undo2 {...barIconProps} />
               </button>
               <button
                 type="button"
@@ -820,7 +820,7 @@ export function BlockEditor({
                 onMouseDown={keepEditorFocus}
                 onClick={handleRedo}
               >
-                <Redo {...barIconProps} />
+                <Redo2 {...barIconProps} />
               </button>
               {/* pointerdown / mousedown 都阻止默认行为，避免点按钮时编辑器失焦、光标丢失 */}
               <button type="button" aria-label={t("app.insertBlock")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openBlockMenu}>
@@ -859,10 +859,10 @@ export function BlockEditor({
                 </button>
               ) : null}
               <button type="button" aria-label={t("app.blockActions")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openBlockSettings}>
-                <More {...barIconProps} />
+                <Ellipsis {...barIconProps} />
               </button>
               <button type="button" aria-label={t("app.hideKeyboard")} className={barButtonClass} onClick={dismissKeyboard}>
-                <DownC {...barIconProps} />
+                <ChevronDown {...barIconProps} />
               </button>
             </div>,
             barSlot,

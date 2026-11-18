@@ -8,7 +8,7 @@ import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { Card, Divider, Image } from "animal-island-ui";
 import DOMPurify from "isomorphic-dompurify";
 import Link from "next/link";
-import { PageLinkIcon } from "@/lib/iconPark";
+import { PageLinkIcon } from "@/lib/icons";
 import { pageTitle } from "@/lib/pageTree";
 import { LazyCodeBlock } from "@/content/render/LazyCodeBlock";
 

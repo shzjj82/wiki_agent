@@ -3,6 +3,7 @@ import { t } from "@/i18n";
 import { IMAGE_ACCEPT, isImageFile } from "@/lib/document/fileKinds";
 import { loadAttachment, type AttachmentData } from "@/store/fileStore";
 import { loadSession } from "@/store/remoteStore";
+import { lucideSvg } from "@/lib/lucideSvg";
 import { menuIcons } from "../menuIcons";
 
 export type ImageBlockData = {
@@ -25,24 +26,15 @@ export type ImageToolConfig = {
   upload?: (file: File) => Promise<AttachmentData>;
 };
 
-const IMAGE_SVG = `<svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="6" y="10" width="36" height="28" rx="3" stroke="currentColor" stroke-width="3"/><circle cx="17" cy="20" r="3" stroke="currentColor" stroke-width="3"/><path d="m6 32 10-8 8 7 6-5 12 9" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-const TRASH_SVG = `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9 10v34h30V10H9Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M20 20v13M28 20v13M4 10h40" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 10 3.3-6h9.5l3.2 6H16Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>`;
-
-function icon(paths: string[]): string {
-  const body = paths
-    .map((d) => `<path d="${d}" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`)
-    .join("");
-  return `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" aria-hidden="true">${body}</svg>`;
-}
-
-const PREVIEW_SVG = icon(["M33 6H42V15", "M42 33V42H33", "M15 42H6V33", "M6 15V6H15"]);
-const DOWNLOAD_SVG = icon(["M6 24.0083V42H42V24", "M33 23L24 32L15 23", "M23.9917 6V32"]);
-const ALIGN_LEFT_SVG = icon(["M42 9H6", "M34 19H6", "M42 29H6", "M34 39H6"]);
-const ALIGN_CENTER_SVG = icon(["M36 19H12", "M42 9H6", "M42 29H6", "M36 39H12"]);
-const ALIGN_RIGHT_SVG = icon(["M42 9H6", "M42 19H14", "M42 29H6", "M42 39H14"]);
-const LAYOUT_INLINE_SVG = `<svg width="18" height="18" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="4" y="8" width="18" height="32" rx="3" fill="currentColor"/><path d="M28 14h16M28 24h16M28 34h10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>`;
-const LAYOUT_BLOCK_SVG = `<svg width="18" height="18" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 7h36M6 41h36" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><rect x="8" y="15" width="32" height="18" rx="3" fill="currentColor"/></svg>`;
+const IMAGE_SVG = lucideSvg("image", 18);
+const TRASH_SVG = lucideSvg("trash", 16);
+const PREVIEW_SVG = lucideSvg("maximize-2", 16);
+const DOWNLOAD_SVG = lucideSvg("download", 16);
+const ALIGN_LEFT_SVG = lucideSvg("align-left", 16);
+const ALIGN_CENTER_SVG = lucideSvg("align-center", 16);
+const ALIGN_RIGHT_SVG = lucideSvg("align-right", 16);
+const LAYOUT_INLINE_SVG = lucideSvg("columns-2", 18);
+const LAYOUT_BLOCK_SVG = lucideSvg("rectangle-horizontal", 18);
 
 export function imageBlockData(uploaded: AttachmentData): ImageBlockData {
   return {

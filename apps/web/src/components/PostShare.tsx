@@ -1,6 +1,5 @@
-import { Check, Copy, ShareOne } from "@icon-park/react";
+import { Check, Copy, Share2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { iconParkOutline } from "@/lib/iconPark";
 
 type Props = {
   title: string;
@@ -91,15 +90,15 @@ export function PostShare({ title, summary, url }: Props) {
         aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
       >
-        <ShareOne {...iconParkOutline} size={14} aria-hidden />
+        <Share2 size={14} aria-hidden />
         <span>{copied ? "已复制链接" : "分享"}</span>
-        {copied ? <Check {...iconParkOutline} size={13} aria-hidden /> : null}
+        {copied ? <Check size={13} aria-hidden /> : null}
       </button>
 
       {open ? (
         <div className="post-share-menu" id={menuId} role="menu">
           <button type="button" className="post-share-item" role="menuitem" onClick={() => void copyLink()}>
-            <Copy {...iconParkOutline} size={14} aria-hidden />
+            <Copy size={14} aria-hidden />
             复制链接
           </button>
           {canNativeShare ? (
@@ -109,7 +108,7 @@ export function PostShare({ title, summary, url }: Props) {
               role="menuitem"
               onClick={() => void shareNative()}
             >
-              <ShareOne {...iconParkOutline} size={14} aria-hidden />
+              <Share2 size={14} aria-hidden />
               系统分享
             </button>
           ) : null}

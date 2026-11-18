@@ -1,5 +1,5 @@
 import type { BlockTool, BlockToolConstructorOptions } from "@editorjs/editorjs";
-import { NOTES_ICON_SVG, PAGE_LINK_TOOLBOX_SVG } from "@/lib/iconPark";
+import { NOTES_ICON_SVG, PAGE_LINK_TOOLBOX_SVG } from "@/lib/icons";
 import { pageTitle } from "@/lib/pageTree";
 
 export type PageLinkData = {
@@ -17,7 +17,7 @@ export type PageLinkToolConfig = {
   resolveTitle?: (pageId: string) => string | undefined;
 };
 
-/** 正文里的子页面块（Notes 图标）；可点开，不另设「插入链接」按钮 */
+/** 正文里的子页面块（FileText 图标）；可点开，不另设「插入链接」按钮 */
 export class PageLinkTool implements BlockTool {
   static get toolbox() {
     return {

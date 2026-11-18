@@ -6,7 +6,7 @@ import {
   type Post,
   type PostVisibility,
 } from "@myblog/shared";
-import { Notes } from "@icon-park/react";
+import { FileText } from "lucide-react";
 import EditorJS from "@editorjs/editorjs";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -20,7 +20,6 @@ import { NotionEditor, saveEditor } from "@/content";
 import { api } from "@/lib/api";
 import { ensureTitleHeader, metaFromEditorDocument } from "@/lib/editorMeta";
 import { appendPageLink, withLivePageLinkTitles } from "@/lib/pageLinks";
-import { iconParkOutline } from "@/lib/iconPark";
 import { ancestorsOf, pageTitle } from "@/lib/pageTree";
 import { LooseChildPages } from "@/workspace/LooseChildPages";
 import { usePagePersist, type PageLiveSnap } from "@/workspace/usePagePersist";
@@ -417,7 +416,7 @@ export function PageEditor({ onSaved }: Props) {
           {statusLabel ? <p className="text-sm text-muted-foreground">{statusLabel}</p> : null}
           {kind === "article" ? (
             <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => void createChildAndOpen()}>
-              <Notes {...iconParkOutline} size={14} className="mr-1" />
+              <FileText size={14} className="mr-1" />
               子页面
             </Button>
           ) : null}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type EditorJS from "@editorjs/editorjs";
 import { useTranslation } from "react-i18next";
-import { ArrowCircleUp, CloudStorage, CloseSmall, Delete, Download, Export, HamburgerButton, HardDisk, MoreTwo, People, Redo, Search, Undo } from "@icon-park/react";
+import { CircleArrowUp, Cloud, Download, Ellipsis, FileOutput, HardDrive, Menu, Redo2, Search, Trash2, Undo2, Users, X } from "lucide-react";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { BlockEditor, type EditorHistoryApi } from "@/components/block-editor";
 import type { PageLinkData } from "@/components/block-editor/tools/PageLinkTool";
@@ -16,7 +16,6 @@ import { WikiChat } from "@/components/wiki-chat";
 import { WorkDesk } from "@/components/work-desk";
 import { ImportDialog, type ImportChoice } from "@/components/import-dialog";
 import { LanguageSwitch } from "@/components/language-switch";
-import { PwaInstallButton } from "@/components/pwa-install";
 import { NotifyBell } from "@/components/notify-bell";
 import { TodoDetailDialog, type TodoDetailTarget } from "@/components/notify-bell/TodoDetailDialog";
 import { ShareDialog } from "@/components/share-dialog";
@@ -111,7 +110,7 @@ import {
 } from "@/store/fileStore";
 import { readAppLocation, takePendingPageId, writeAppLocation } from "@/lib/route";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 const EMPTY_TEAMS: TeamInfo[] = [];
 const SIDEBAR_WIDTH_KEY = "editor:sidebar-width";
 const SIDEBAR_MIN = 200;
@@ -1378,7 +1377,7 @@ function AppMain() {
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="truncate px-1 text-sm font-semibold text-foreground">{t("app.title")}</span>
             <Button type="button" variant="ghost" size="icon" aria-label={t("app.closePageList")} onClick={() => setSidebarOpen(false)}>
-              <CloseSmall {...iconProps} />
+              <X {...iconProps} />
             </Button>
           </div>
         ) : null}
@@ -1478,7 +1477,7 @@ function AppMain() {
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-1">
               <Button type="button" variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" onClick={() => setAuthOpen(true)}>
-                <People {...iconProps} />
+                <Users {...iconProps} />
                 {t("app.logIn")}
               </Button>
               {appUpdate.available ? (
@@ -1490,7 +1489,7 @@ function AppMain() {
                   title={t("appUpdate.availableShort")}
                   onClick={() => appUpdate.openAvailable()}
                 >
-                  <ArrowCircleUp {...iconProps} />
+                  <CircleArrowUp {...iconProps} />
                 </Button>
               ) : null}
             </div>
@@ -1533,11 +1532,11 @@ function AppMain() {
                 aria-expanded={sidebarOpen}
                 onClick={() => setSidebarOpen(true)}
               >
-                <HamburgerButton {...iconProps} />
+                <Menu {...iconProps} />
               </Button>
             ) : null}
             <span className="inline-flex shrink-0 items-center gap-1.5">
-              {remote ? <CloudStorage {...iconProps} size={14} /> : <HardDisk {...iconProps} size={14} />}
+              {remote ? <Cloud {...iconProps} size={14} /> : <HardDrive {...iconProps} size={14} />}
               <span className="hidden sm:inline">{remote ? t("app.remote") : t("app.local")}</span>
             </span>
             <span className={cn("min-w-0 truncate", error && "text-destructive")}>{error || hint}</span>
@@ -1557,7 +1556,7 @@ function AppMain() {
           />
           {teamsListOpen ? (
             <Button type="button" variant="ghost" size="icon" aria-label={t("team.close")} onClick={() => setTeamsListOpen(false)}>
-              <CloseSmall {...iconProps} />
+              <X {...iconProps} />
             </Button>
           ) : (
           <>
@@ -1565,7 +1564,7 @@ function AppMain() {
           <span className="hidden shrink-0 items-center gap-2 sm:inline-flex">
             {session && syncSettings.enabled && syncPlan && !syncStep ? (
               <Button type="button" variant="outline" size="sm" onClick={() => setSyncStep("summary")}>
-                <CloudStorage {...iconProps} />
+                <Cloud {...iconProps} />
                 {t("common.syncLocalPages")} · {syncPlanSize(syncPlan)}
               </Button>
             ) : null}
@@ -1577,7 +1576,7 @@ function AppMain() {
               disabled={!page || emptyTeamId !== null || pageReadOnly || !historyState.canUndo}
               onClick={() => historyRef.current?.undo()}
             >
-              <Undo {...iconProps} />
+              <Undo2 {...iconProps} />
             </Button>
             <Button
               type="button"
@@ -1587,7 +1586,7 @@ function AppMain() {
               disabled={!page || emptyTeamId !== null || pageReadOnly || !historyState.canRedo}
               onClick={() => historyRef.current?.redo()}
             >
-              <Redo {...iconProps} />
+              <Redo2 {...iconProps} />
             </Button>
             <Button type="button" variant="outline" size="sm" disabled={!page || emptyTeamId !== null} onClick={() => importInputRef.current?.click()}>
               <Download {...iconProps} />
@@ -1596,7 +1595,7 @@ function AppMain() {
             <Popover open={exportOpen} onOpenChange={setExportOpen}>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm" disabled={!page || emptyTeamId !== null}>
-                  <Export {...iconProps} />
+                  <FileOutput {...iconProps} />
                   {t("app.export")}
                 </Button>
               </PopoverTrigger>
@@ -1620,7 +1619,7 @@ function AppMain() {
               </PopoverContent>
             </Popover>
             <Button type="button" variant="outline" size="sm" disabled={!page || emptyTeamId !== null || pageReadOnly} onClick={() => page && void removePage(page.id)}>
-              <Delete {...iconProps} />
+              <Trash2 {...iconProps} />
               {t("common.delete")}
             </Button>
             <Button type="button" variant="outline" size="icon" aria-label={t("wikiAsk.title")} onClick={openWiki}>
@@ -1632,21 +1631,20 @@ function AppMain() {
               </Button>
             ) : null}
             <LanguageSwitch onChange={(locale) => void switchLocale(locale)} />
-            <PwaInstallButton variant="header" />
           </span>
           {/* 移动端：更多菜单 + AI */}
           <span className="inline-flex shrink-0 items-center gap-1 sm:hidden">
             <Popover open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="icon" aria-label={t("app.moreActions")}>
-                  <MoreTwo {...iconProps} />
+                  <Ellipsis {...iconProps} />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-60 p-1">
                 {session && syncSettings.enabled && syncPlan && !syncStep ? (
                   <>
                     <MenuRow
-                      icon={<CloudStorage {...iconProps} />}
+                      icon={<Cloud {...iconProps} />}
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setSyncStep("summary");
@@ -1688,7 +1686,7 @@ function AppMain() {
                   {t("common.exportWord")}
                 </MenuRow>
                 <MenuRow
-                  icon={<Delete {...iconProps} />}
+                  icon={<Trash2 {...iconProps} />}
                   danger
                   disabled={!page || emptyTeamId !== null || pageReadOnly}
                   onClick={() => {
@@ -1699,7 +1697,6 @@ function AppMain() {
                   {t("common.delete")}
                 </MenuRow>
                 <PopoverSeparator />
-                <PwaInstallButton variant="menu" onOpen={() => setMobileMenuOpen(false)} />
                 <div className="flex items-center justify-between gap-2 px-2 py-1">
                   <span className="text-xs text-muted-foreground">{t("common.language")}</span>
                   <LanguageSwitch onChange={(locale) => void switchLocale(locale)} />

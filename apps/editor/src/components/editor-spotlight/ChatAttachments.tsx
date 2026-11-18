@@ -1,11 +1,10 @@
-import { Close } from "@icon-park/react";
+import { X } from "lucide-react";
 import { AttachFileIcon } from "@/components/file-type-icon";
 import {
   downloadTextAttachment,
   type LocalAttachment,
 } from "@/lib/ai/chat";
 import { attachFileKind, attachFileLabel, fileExtension } from "@/lib/document/fileKinds";
-import { iconParkOutline } from "@/lib/iconPark";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -37,7 +36,7 @@ export function PendingAttachments({ items, onRemove, className }: PendingProps)
                 aria-label={t("spotlight.remove", { name: item.name })}
                 onClick={() => onRemove(item.id)}
               >
-                <Close {...iconParkOutline} size={10} />
+                <X size={10} />
               </button>
             ) : null}
           </span>
@@ -55,7 +54,7 @@ export function PendingAttachments({ items, onRemove, className }: PendingProps)
                 aria-label={t("spotlight.remove", { name: item.name })}
                 onClick={() => onRemove(item.id)}
               >
-                <Close {...iconParkOutline} size={10} />
+                <X size={10} />
               </button>
             ) : null}
           </span>

@@ -1,5 +1,5 @@
 import type { API, BlockAPI, BlockTool, BlockToolConstructorOptions } from "@editorjs/editorjs";
-import { AI_ASSIST_TOOLBOX_SVG } from "@/lib/iconPark";
+import { AI_ASSIST_TOOLBOX_SVG } from "@/lib/icons";
 
 export type AiAssistInvokeContext = {
   /** 删除临时块之后，新内容应插入的下标 */

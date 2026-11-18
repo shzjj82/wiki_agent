@@ -1,5 +1,5 @@
 import type EditorJS from "@editorjs/editorjs";
-import { Close, Comment, Search, Send } from "@icon-park/react";
+import { MessageSquare, Search, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SpotlightChatPane } from "./SpotlightChatPane";
@@ -7,7 +7,6 @@ import { SpotlightCommandList, type SpotlightCommandItem } from "./SpotlightComm
 import { searchDocs, type SearchDoc } from "@/lib/document/search";
 import { useSpotlightChat } from "./useSpotlightChat";
 import { pageTitle } from "@/i18n";
-import { iconParkOutline } from "@/lib/iconPark";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useVisualViewport } from "@/lib/useKeyboardInset";
@@ -282,7 +281,7 @@ export function EditorSpotlight({
           {inChat && action ? (
             <>
               <span className="editor-spotlight-chip">
-                <Comment {...iconParkOutline} size={14} aria-hidden />
+                <MessageSquare size={14} aria-hidden />
                 <span>{action.chip || action.title}</span>
                 <button
                   type="button"
@@ -290,7 +289,7 @@ export function EditorSpotlight({
                   aria-label={t("spotlight.exitCommand")}
                   onClick={clearAction}
                 >
-                  <Close {...iconParkOutline} size={12} />
+                  <X size={12} />
                 </button>
               </span>
               <textarea
@@ -341,12 +340,12 @@ export function EditorSpotlight({
                 aria-label={t("spotlight.send")}
                 onClick={() => void send()}
               >
-                <Send {...iconParkOutline} size={18} />
+                <Send size={18} />
               </button>
             </>
           ) : (
             <>
-              <Search {...iconParkOutline} size={18} className="editor-spotlight-search-icon" aria-hidden />
+              <Search size={18} className="editor-spotlight-search-icon" aria-hidden />
               <input
                 ref={searchRef}
                 className="editor-spotlight-input"
@@ -385,7 +384,7 @@ export function EditorSpotlight({
           <div className="editor-spotlight-search-end">
             <kbd className="editor-spotlight-kbd">esc</kbd>
             <button type="button" className="editor-spotlight-close" aria-label={t("spotlight.close")} onClick={closeAll}>
-              <Close {...iconParkOutline} size={14} />
+              <X size={14} />
             </button>
           </div>
         </div>

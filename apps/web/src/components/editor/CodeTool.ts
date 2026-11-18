@@ -12,7 +12,7 @@ export class CodeTool {
   static get toolbox() {
     return {
       title: "代码块 · code",
-      icon: '<svg width="17" height="15" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8.3 6.3 2.6 12l5.7 5.7 1.4-1.4L5.4 12l4.3-4.3-1.4-1.4zm7.4 0-1.4 1.4L18.6 12l-4.3 4.3 1.4 1.4 5.7-5.7-5.7-5.7z"/></svg>',
+      icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m16 18 6-6-6-6\"/><path d=\"m8 6-6 6 6 6\"/></svg>",
     };
   }
 

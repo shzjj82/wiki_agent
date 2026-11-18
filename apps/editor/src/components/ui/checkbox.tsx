@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check } from "@icon-park/react"
+import { Check } from "lucide-react";
 import { cn } from "cn"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
 
@@ -14,7 +14,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
       {...props}
     >
       <CheckboxPrimitive.Indicator data-slot="checkbox-indicator" className="flex items-center justify-center">
-        <Check theme="outline" strokeWidth={4} size={12} />
+        <Check size={12} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

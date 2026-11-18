@@ -1,8 +1,8 @@
-import { Download } from "@icon-park/react";
+import { Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { latestDownloadPageUrl } from "@/store/shareStore";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 14 };
+const iconProps = { size: 14 };
 
 /** 只打开下载页。页面自己选当前能下的最新安装包，这里不写死版本。 */
 export function ShareDownloadGuide() {

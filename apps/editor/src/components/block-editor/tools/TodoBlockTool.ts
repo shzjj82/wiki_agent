@@ -16,6 +16,7 @@ import {
   type UpsertTodoInput,
 } from "@/store/notifyStore";
 import { loadSession } from "@/store/remoteStore";
+import { lucideSvg } from "@/lib/lucideSvg";
 import { menuIcons } from "../menuIcons";
 
 /** pending 未开始 · in_progress 进行中 · done 已完成 · cancelled 已终止 */
@@ -71,48 +72,15 @@ function migrateStatus(raw: { status?: unknown; done?: unknown }): TodoStatus {
 
 const DAY = 86_400_000;
 
-function glyph(body: string): string {
-  return `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" aria-hidden="true">${body}</svg>`;
-}
-
-const LIST_ICON = glyph(
-  `<rect x="4" y="6" width="40" height="36" rx="3" stroke="currentColor" stroke-width="3"/>` +
-    `<path d="M4 14H44M20 24H36M20 32H36M12 24H14M12 32H14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`,
-);
-const GANTT_ICON = glyph(
-  `<path d="M10 8v32M10 40h30" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` +
-    `<rect x="16" y="11" width="20" height="7" rx="3.5" stroke="currentColor" stroke-width="3"/>` +
-    `<rect x="22" y="21" width="16" height="7" rx="3.5" stroke="currentColor" stroke-width="3"/>` +
-    `<rect x="14" y="31" width="14" height="7" rx="3.5" stroke="currentColor" stroke-width="3"/>`,
-);
-const CHECK_ICON = glyph(
-  `<path d="M12 24l8 8 16-18" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`,
-);
-const CALENDAR_ICON = glyph(
-  `<rect x="6" y="8" width="36" height="32" rx="3" stroke="currentColor" stroke-width="3"/>` +
-    `<path d="M6 18H42M16 4V12M32 4V12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`,
-);
-const REMOVE_ICON = glyph(
-  `<path d="M9 10V44H39V10H9Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>` +
-    `<path d="M20 20V33M28 20V33M4 10H44M16 10L19.289 4H28.7771L32 10H16Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
-);
-const CANCEL_ICON = glyph(
-  `<circle cx="24" cy="24" r="18" stroke="currentColor" stroke-width="3"/>` +
-    `<path d="M16 16l16 16M32 16L16 32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`,
-);
-const RESTORE_ICON = glyph(
-  `<path d="M12 24a12 12 0 1 0 4-8.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>` +
-    `<path d="M12 12v8h8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
-);
-const ADD_ICON = glyph(
-  `<path d="M24 10V38M10 24H38" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`,
-);
-const EMPTY_ICON =
-  `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">` +
-  `<path d="M4 30L9 6H39L44 30" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` +
-  `<path d="M4 30H14.9091L16.7273 36H31.2727L33.0909 30H44V43H4V30Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>` +
-  `<path d="M19 14H29M16 22H32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>` +
-  `</svg>`;
+const LIST_ICON = lucideSvg("list-todo", 16);
+const GANTT_ICON = lucideSvg("chart-no-axes-gantt", 16);
+const CHECK_ICON = lucideSvg("check", 16);
+const CALENDAR_ICON = lucideSvg("calendar", 16);
+const REMOVE_ICON = lucideSvg("trash", 16);
+const CANCEL_ICON = lucideSvg("circle-x", 16);
+const RESTORE_ICON = lucideSvg("rotate-ccw", 16);
+const ADD_ICON = lucideSvg("plus", 16);
+const EMPTY_ICON = lucideSvg("inbox", 48);
 
 function textWidth(input: HTMLInputElement): number {
   const probe = document.createElement("span");

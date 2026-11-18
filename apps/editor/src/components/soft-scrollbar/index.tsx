@@ -9,10 +9,9 @@ import {
   type ReactNode,
   type UIEventHandler,
 } from "react";
-import { Down } from "@icon-park/react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { iconParkOutline } from "@/lib/iconPark";
 import { useVisualViewport } from "@/lib/useKeyboardInset";
 import { useIsMobile } from "@/lib/useMediaQuery";
 
@@ -163,7 +162,7 @@ export const SoftScrollbar = forwardRef<HTMLDivElement, Props>(function SoftScro
           aria-label={jumpToBottomLabel}
           onClick={scrollToBottom}
         >
-          <Down {...iconParkOutline} size={16} />
+          <ChevronDown size={16} />
         </Button>
       ) : null}
     </div>

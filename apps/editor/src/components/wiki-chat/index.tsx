@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Close, Copy, Paperclip, Refresh, Send, SettingTwo, Time } from "@icon-park/react";
+import { Copy, History, Paperclip, RefreshCw, Send, Settings, X } from "lucide-react";
 import type { AiAttachment, AiChatMessage } from "@myblog/shared";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -44,7 +44,6 @@ import {
   summaryToThread,
   type WikiThread,
 } from "@/lib/ai/wikiChatHistory";
-import { iconParkOutline } from "@/lib/iconPark";
 import { t } from "@/i18n";
 import { useTranslation } from "react-i18next";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
@@ -738,15 +737,15 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
       >
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{tr("wikiAsk.title")}</span>
         <Button type="button" variant={historyOpen ? "secondary" : "ghost"} size="icon" aria-label={tr("wikiAsk.history")} onClick={() => setHistoryOpen((open) => !open)}>
-          <Time {...iconParkOutline} size={16} />
+          <History size={16} />
         </Button>
         {desktop ? (
           <Button type="button" variant={permOpen ? "secondary" : "ghost"} size="icon" aria-label={tr("wikiAsk.permissions")} onClick={() => setPermOpen((open) => !open)}>
-            <SettingTwo {...iconParkOutline} size={16} />
+            <Settings size={16} />
           </Button>
         ) : null}
         <Button type="button" variant="ghost" size="icon" aria-label={tr("wikiAsk.close")} onClick={onClose}>
-          <Close {...iconParkOutline} size={16} />
+          <X size={16} />
         </Button>
       </header>
 
@@ -796,10 +795,10 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
                 {item.content.trim() && item.id !== replyingId ? (
                   <div className="-ml-1 mt-1 flex items-center gap-0.5">
                     <Button type="button" variant="ghost" size="icon-xs" aria-label={copiedId === item.id ? tr("wikiAsk.copied") : tr("wikiAsk.copy")} onClick={() => void copyReply(item)}>
-                      <Copy {...iconParkOutline} size={14} />
+                      <Copy size={14} />
                     </Button>
                     <Button type="button" variant="ghost" size="icon-xs" disabled={sending} aria-label={tr("wikiAsk.regenerate")} onClick={() => regenerate(item.id)}>
-                      <Refresh {...iconParkOutline} size={14} />
+                      <RefreshCw size={14} />
                     </Button>
                   </div>
                 ) : null}
@@ -901,10 +900,10 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
               aria-label={tr("wikiAsk.attach")}
               onClick={() => fileRef.current?.click()}
             >
-              <Paperclip {...iconParkOutline} size={16} />
+              <Paperclip size={16} />
             </Button>
             <Button type="submit" size="icon-sm" className="rounded-full focus-visible:ring-0" disabled={!canSend} aria-label={tr("wikiAsk.send")}>
-              <Send {...iconParkOutline} size={15} />
+              <Send size={15} />
             </Button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Remind } from "@icon-park/react";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
@@ -25,7 +25,6 @@ import {
   type NotifyTodo,
 } from "@/store/notifyStore";
 import { retainNotifySocket } from "@/store/notifySocket";
-import { iconParkOutline } from "@/lib/iconPark";
 import type { RemoteSession } from "@/store/remoteStore";
 import { TodoDetailDialog, type TodoDetailTarget } from "./TodoDetailDialog";
 
@@ -249,7 +248,7 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
       aria-label={t("notify.title")}
       onClick={isMobile ? () => setOpen(true) : undefined}
     >
-      <Remind {...iconParkOutline} size={16} />
+      <Bell size={16} />
       {unread > 0 ? (
         <span aria-hidden className="notify-bell-dot absolute top-1 right-1 size-1.5 rounded-full bg-red-500" />
       ) : null}

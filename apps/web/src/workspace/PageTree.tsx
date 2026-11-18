@@ -1,13 +1,12 @@
 "use client";
 
 import type { PostListItem } from "@myblog/shared";
-import { Delete, Down, Notes, Plus, Right, ToTop } from "@icon-park/react";
+import { ArrowUpToLine, ChevronDown, ChevronRight, FileText, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { SoftScrollbar } from "@/components/SoftScrollbar";
 import { Button } from "@/components/ui/button";
-import { iconParkOutline } from "@/lib/iconPark";
 import { pageTitle, selfAndDescendantIds } from "@/lib/pageTree";
 import { cn } from "@/lib/utils";
 
@@ -146,7 +145,7 @@ export function PageTree({
     page: PostListItem,
     opts: { depth: number; hasChildren?: boolean; draggable?: boolean },
   ) => {
-    const Icon = Notes;
+    const Icon = FileText;
     const canDelete = page.pageKind === "article";
     const canAddChild = page.pageKind === "article";
     const depthPad = collapsed ? 0 : Math.min(opts.depth, 6) * 12;
@@ -195,9 +194,9 @@ export function PageTree({
             onClick={() => toggle(page.id)}
           >
             {isExpanded(page.id) ? (
-              <Down {...iconParkOutline} size={14} />
+              <ChevronDown size={14} />
             ) : (
-              <Right {...iconParkOutline} size={14} />
+              <ChevronRight size={14} />
             )}
           </button>
         ) : (
@@ -226,7 +225,7 @@ export function PageTree({
               : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
           )}
         >
-          <Icon {...iconParkOutline} size={16} className="shrink-0 opacity-80" />
+          <Icon size={16} className="shrink-0 opacity-80" />
           {!collapsed ? (
             <span className="min-w-0 truncate">
               {pageTitle(page)}
@@ -247,7 +246,7 @@ export function PageTree({
               onCreateArticle(page.id);
             }}
           >
-            <Plus {...iconParkOutline} size={14} />
+            <Plus size={14} />
           </button>
         ) : null}
         {!collapsed && canDelete ? (
@@ -258,7 +257,7 @@ export function PageTree({
             aria-label={`删除 ${pageTitle(page)}`}
             onClick={() => onDelete(page)}
           >
-            <Delete {...iconParkOutline} size={14} />
+            <Trash2 size={14} />
           </button>
         ) : null}
       </div>
@@ -311,7 +310,7 @@ export function PageTree({
                   acceptDrop(event, { kind: "root" });
                 }}
               >
-                <ToTop {...iconParkOutline} size={14} className="shrink-0 opacity-80" />
+                <ArrowUpToLine size={14} className="shrink-0 opacity-80" />
                 <div className="min-w-0 leading-snug">
                   <p className="font-medium text-sidebar-foreground">移出到顶层</p>
                   <p className="text-[10px] text-muted-foreground">把子页面从当前父页下拖出来</p>
@@ -333,7 +332,7 @@ export function PageTree({
       {!collapsed ? (
         <div className="mt-auto shrink-0 border-t border-sidebar-border pt-3">
           <Button type="button" size="sm" className="h-8 w-full" onClick={() => onCreateArticle(null)}>
-            <Plus {...iconParkOutline} size={14} className="mr-1" />
+            <Plus size={14} className="mr-1" />
             页面
           </Button>
         </div>
@@ -346,7 +345,7 @@ export function PageTree({
             title="新页面"
             onClick={() => onCreateArticle(null)}
           >
-            <Plus {...iconParkOutline} size={16} />
+            <Plus size={16} />
           </Button>
         </div>
       )}

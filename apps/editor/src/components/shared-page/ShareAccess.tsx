@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Star } from "@icon-park/react";
+import { Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +14,7 @@ import {
 import { loadSession, loginRemote, logoutRemote, registerRemote, type RemoteSession } from "@/store/remoteStore";
 import { ShareDownloadGuide } from "@/components/shared-page/ShareDownloadGuide";
 
-const iconProps = { strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 
 /** 分享页右上角：登录入口；登录后可收藏，作者本人不显示收藏。 */
 export function ShareAccess({ token }: { token: string }) {
@@ -90,7 +90,7 @@ export function ShareAccess({ token }: { token: string }) {
               aria-pressed={favorite?.favorited === true}
               onClick={() => void toggleFavorite()}
             >
-              <Star {...iconProps} theme={favorite?.favorited ? "filled" : "outline"} />
+              <Star {...iconProps} className={favorite?.favorited ? "fill-current" : undefined} />
               {favorite?.favorited ? t("share.favorited") : t("share.favorite")}
             </Button>
           ) : null}

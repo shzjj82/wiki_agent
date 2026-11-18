@@ -1,7 +1,6 @@
-import { Robot } from "@icon-park/react";
+import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { iconParkOutline } from "@/lib/iconPark";
 
 type SelectionRect = {
   top: number;
@@ -115,7 +114,7 @@ export function SelectionAskChip({
         window.getSelection()?.removeAllRanges();
       }}
     >
-      <Robot {...iconParkOutline} size={14} aria-hidden />
+      <Bot size={14} aria-hidden />
       问 AI
     </button>,
     document.body,

@@ -213,7 +213,7 @@
 }
 
 .ws-scrollbar__view {
-  min-height: min-content;
+  min-height: 100%;
 }
 
 .ce-toolbar__settings-btn {

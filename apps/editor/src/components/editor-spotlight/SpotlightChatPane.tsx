@@ -1,13 +1,12 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useEffect, useState } from "react";
-import { Check, Close, Paperclip } from "@icon-park/react";
+import { Check, Paperclip, X } from "lucide-react";
 import { BubbleAttachments, PendingAttachments } from "./ChatAttachments";
 import type { DraftInsert } from "./useSpotlightChat";
 import { Button } from "@/components/ui/button";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { AI_FILE_ACCEPT, type ChatBubble, type LocalAttachment } from "@/lib/ai/chat";
-import { iconParkOutline } from "@/lib/iconPark";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -125,7 +124,7 @@ export function SpotlightChatPane({
                     aria-label={on ? t("spotlight.deselect") : t("spotlight.select")}
                     onClick={() => toggle(item.id)}
                   >
-                    {on ? <Check {...iconParkOutline} size={12} /> : null}
+                    {on ? <Check size={12} /> : null}
                   </button>
                 ) : null}
                 <div className="editor-spotlight-bubble-main">
@@ -201,7 +200,7 @@ export function SpotlightChatPane({
             aria-label={t("spotlight.clearSelection")}
             onClick={() => setQuote("")}
           >
-            <Close {...iconParkOutline} size={12} />
+            <X size={12} />
           </button>
         </div>
       ) : null}
@@ -237,7 +236,7 @@ export function SpotlightChatPane({
           aria-label={t("spotlight.addImageOrText")}
           onClick={() => fileRef.current?.click()}
         >
-          <Paperclip {...iconParkOutline} size={16} />
+          <Paperclip size={16} />
         </Button>
         <span className="editor-spotlight-foot-hint">
           {picking ? t("spotlight.pickRepliesToCombine") : t("spotlight.sendHint")}

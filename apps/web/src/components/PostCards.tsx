@@ -2,10 +2,9 @@
 
 import type { PostListItem } from "@myblog/shared";
 import { isSiteSkillColor } from "@myblog/shared";
-import { ArrowRight } from "@icon-park/react";
+import { ArrowRight } from "lucide-react";
 import { Card } from "animal-island-ui";
 import Link from "next/link";
-import { iconParkOutline } from "@/lib/iconPark";
 import { pageTitle } from "@/lib/pageTree";
 
 /** 过短或纯符号的摘要不当正文描述 */
@@ -90,7 +89,7 @@ export function PostCards({ posts, empty }: { posts: PostListItem[]; empty: stri
               </time>
               <span className="blog-post-more blog-inline-icon">
                 阅读
-                <ArrowRight {...iconParkOutline} size={14} aria-hidden />
+                <ArrowRight size={14} aria-hidden />
               </span>
             </div>
           </Card>

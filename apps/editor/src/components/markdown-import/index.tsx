@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { FileAddition, Left, UploadOne } from "@icon-park/react";
+import { ChevronLeft, FilePlus, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { documentFromMarkdown, titleFromMarkdown } from "@/lib/document/fromMarkdown";
 import { goAppHome, markdownPath, setPendingPageId } from "@/lib/route";
@@ -13,7 +13,7 @@ import {
 } from "@/store/teamStore";
 import { createRemote, loadSession } from "@/store/remoteStore";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 const MD_ACCEPT = ".md,.markdown,text/markdown,text/plain";
 
 function fileBaseName(name: string): string {
@@ -112,14 +112,14 @@ export function MarkdownImportPage() {
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Button type="button" variant="ghost" size="icon" aria-label={t("markdown.back")} onClick={() => goAppHome()}>
-          <Left {...iconProps} />
+          <ChevronLeft {...iconProps} />
         </Button>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{t("markdown.title")}</div>
           <div className="truncate text-xs text-muted-foreground">{t("markdown.subtitle")}</div>
         </div>
         <Button type="button" variant="outline" size="sm" disabled={busy || !text.trim()} onClick={() => void onCreate()}>
-          <FileAddition {...iconProps} />
+          <FilePlus {...iconProps} />
           {busy ? t("markdown.creating") : t("markdown.create")}
         </Button>
       </header>
@@ -138,7 +138,7 @@ export function MarkdownImportPage() {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <UploadOne {...iconProps} size={22} />
+          <Upload {...iconProps} size={22} />
           <p className="text-sm text-foreground">{t("markdown.dropHint")}</p>
           <p className="text-xs text-muted-foreground">{t("markdown.dropTypes")}</p>
           <label className="mt-1">

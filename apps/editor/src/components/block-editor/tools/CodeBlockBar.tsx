@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Down } from "@icon-park/react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { t } from "@/i18n";
 import { copyText } from "@/lib/clipboard";
-import { iconParkOutline } from "@/lib/iconPark";
 import { CODE_LANGUAGES, codeLanguageLabel } from "@/lib/document/codeLint";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +40,7 @@ export function CodeBlockBar({ language, readOnly, getCode, onLanguage }: CodeBl
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className={quietButton} aria-label={t("code.language")}>
               {label}
-              <Down {...iconParkOutline} size={12} />
+              <ChevronDown size={12} />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -65,7 +64,7 @@ export function CodeBlockBar({ language, readOnly, getCode, onLanguage }: CodeBl
                       setOpen(false);
                     }}
                   >
-                    <Check {...iconParkOutline} size={14} className={cn("shrink-0", selected ? "opacity-100" : "opacity-0")} />
+                    <Check size={14} className={cn("shrink-0", selected ? "opacity-100" : "opacity-0")} />
                     {name}
                   </button>
                 );
@@ -90,7 +89,7 @@ export function CodeBlockBar({ language, readOnly, getCode, onLanguage }: CodeBl
           });
         }}
       >
-        <Copy {...iconParkOutline} size={14} />
+        <Copy size={14} />
         {copied ? t("code.copied") : t("code.copy")}
       </Button>
     </div>

@@ -3,6 +3,7 @@ import { t } from "@/i18n";
 import { fileTypeSvg } from "@/components/file-type-icon";
 import { ATTACHMENT_ACCEPT, fileKind, formatFileSize } from "@/lib/document/fileKinds";
 import type { AttachmentData } from "@/store/fileStore";
+import { lucideSvg } from "@/lib/lucideSvg";
 import { menuIcons } from "../menuIcons";
 
 export type AttachmentToolConfig = {
@@ -12,9 +13,8 @@ export type AttachmentToolConfig = {
   confirmDelete?: (name: string) => Promise<boolean>;
 };
 
-const TRASH_SVG = `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9 10v34h30V10H9Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M20 20v13M28 20v13M4 10h40" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 10 3.3-6h9.5l3.2 6H16Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>`;
-
-const PAPERCLIP_SVG = `<svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M40.7 22.3 24.4 38.6a10 10 0 0 1-14.1-14.1L27.3 7.5a6.7 6.7 0 0 1 9.4 9.4L19.6 34a3.3 3.3 0 0 1-4.7-4.7L30.4 13.8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const TRASH_SVG = lucideSvg("trash", 16);
+const PAPERCLIP_SVG = lucideSvg("paperclip", 18);
 
 function isAttachment(data: unknown): data is AttachmentData {
   const value = data as Partial<AttachmentData> | undefined;

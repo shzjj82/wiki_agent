@@ -1,11 +1,10 @@
 import type EditorJS from "@editorjs/editorjs";
-import { Close, Robot, Search } from "@icon-park/react";
+import { Bot, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SpotlightChatPane } from "@/components/ai/SpotlightChatPane";
 import { SpotlightCommandList } from "@/components/ai/SpotlightCommandList";
 import { useSpotlightChat } from "@/components/ai/useSpotlightChat";
-import { iconParkOutline } from "@/lib/iconPark";
 import { cn } from "@/lib/utils";
 
 export type SpotlightAction = {
@@ -183,7 +182,7 @@ export function EditorSpotlight({
           {inChat && action ? (
             <>
               <span className="editor-spotlight-chip">
-                <Robot {...iconParkOutline} size={14} aria-hidden />
+                <Bot size={14} aria-hidden />
                 <span>{action.chip || action.title}</span>
                 <button
                   type="button"
@@ -191,7 +190,7 @@ export function EditorSpotlight({
                   aria-label="退出命令"
                   onClick={clearAction}
                 >
-                  <Close {...iconParkOutline} size={12} />
+                  <X size={12} />
                 </button>
               </span>
               <textarea
@@ -235,7 +234,7 @@ export function EditorSpotlight({
             </>
           ) : (
             <>
-              <Search {...iconParkOutline} size={18} className="editor-spotlight-search-icon" aria-hidden />
+              <Search size={18} className="editor-spotlight-search-icon" aria-hidden />
               <input
                 ref={searchRef}
                 className="editor-spotlight-input"
@@ -274,7 +273,7 @@ export function EditorSpotlight({
           <div className="editor-spotlight-search-end">
             <kbd className="editor-spotlight-kbd">esc</kbd>
             <button type="button" className="editor-spotlight-close" aria-label="关闭" onClick={closeAll}>
-              <Close {...iconParkOutline} size={14} />
+              <X size={14} />
             </button>
           </div>
         </div>

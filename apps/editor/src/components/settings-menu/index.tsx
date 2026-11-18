@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Lock, Logout, Refresh } from "@icon-park/react";
+import { Lock, LogOut, RefreshCw } from "lucide-react";
 import { CheckUpdateSlot } from "@/components/app-update";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/com
 import { Switch } from "@/components/ui/switch";
 import type { SyncSettings } from "@/store/syncSettings";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 
 type Props = {
   label: string;
@@ -116,7 +116,7 @@ export function SettingsMenu({
                 check();
               }}
             >
-              <Refresh {...iconProps} size={14} />
+              <RefreshCw {...iconProps} size={14} />
               {t("appUpdate.check")}
             </button>
           )}
@@ -140,7 +140,7 @@ export function SettingsMenu({
             onLogout();
           }}
         >
-          <Logout {...iconProps} size={14} />
+          <LogOut {...iconProps} size={14} />
           {t("settingsMenu.logOut")}
         </button>
       </PopoverContent>

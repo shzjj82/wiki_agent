@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from "react";
-import { Delete, Down, More, Notes, Plus, Right, Share, ToTop } from "@icon-park/react";
+import { ArrowUpToLine, ChevronDown, ChevronRight, Ellipsis, FileText, Plus, Share2, Trash2 } from "lucide-react";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -8,7 +8,7 @@ import type { ExportFormat } from "@/lib/document/export";
 import { useTranslation } from "react-i18next";
 import type { PageNode } from "@/store/localStore";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 const DRAG_MIME = "application/x-editor-page-id";
 
 type TreeNode = PageNode & { children: TreeNode[] };
@@ -123,7 +123,7 @@ const RowMenu = memo(function RowMenu({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <More {...iconProps} size={14} />
+          <Ellipsis {...iconProps} size={14} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
@@ -138,7 +138,7 @@ const RowMenu = memo(function RowMenu({
         </DropdownMenuItem>
         {onShare ? (
           <DropdownMenuItem onSelect={() => onShare(nodeId)}>
-            <Share {...iconProps} size={14} />
+            <Share2 {...iconProps} size={14} />
             {t("share.menu")}
           </DropdownMenuItem>
         ) : null}
@@ -153,7 +153,7 @@ const RowMenu = memo(function RowMenu({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(nodeId)}>
-          <Delete {...iconProps} size={14} />
+          <Trash2 {...iconProps} size={14} />
           {t("common.delete")}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -338,7 +338,7 @@ function PageTreeInner({
                 aria-label={open ? t("pageTree.collapse") : t("pageTree.expand")}
                 onClick={() => toggle(node.id)}
               >
-                {open ? <Down {...iconProps} size={14} /> : <Right {...iconProps} size={14} />}
+                {open ? <ChevronDown {...iconProps} size={14} /> : <ChevronRight {...iconProps} size={14} />}
               </button>
             ) : (
               <span className="size-6 shrink-0" aria-hidden />
@@ -356,7 +356,7 @@ function PageTreeInner({
               onDragStart={(event) => beginDrag(event, node.id)}
               onDragEnd={clearDrag}
             >
-              <Notes {...iconProps} />
+              <FileText {...iconProps} />
               <span className="min-w-0 flex-1 truncate text-left">{pageTitle(node.title)}</span>
               {node.teamId && teamNames[node.teamId] ? (
                 <span className="max-w-16 shrink-0 truncate text-[10px] text-muted-foreground">{teamNames[node.teamId]}</span>
@@ -403,7 +403,7 @@ function PageTreeInner({
           }}
           onDrop={(event) => acceptDrop(event, null)}
         >
-          <ToTop {...iconProps} size={14} />
+          <ArrowUpToLine {...iconProps} size={14} />
           {t("pageTree.moveToTopLevel")}
         </div>
       ) : null}

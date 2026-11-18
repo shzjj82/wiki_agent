@@ -1,7 +1,7 @@
 "use client";
 
 import { SITE_DESCRIPTION, type Post as BlogPost, type PostListItem } from "@myblog/shared";
-import { ArrowLeft, ArrowRight } from "@icon-park/react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button, Card } from "animal-island-ui";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,7 @@ import { SoftScrollbar } from "@/components/SoftScrollbar";
 import { Seo } from "@/components/Seo";
 import { api } from "@/lib/api";
 import { useCategories } from "@/lib/categories";
-import { iconParkOutline, PageLinkIcon } from "@/lib/iconPark";
+import { PageLinkIcon } from "@/lib/icons";
 import { pageTitle } from "@/lib/pageTree";
 import type { PostDetail } from "@/lib/server-api";
 import "./Post.less";
@@ -154,7 +154,7 @@ function Post({ slug, initialDetail, jsonLd }: PostProps) {
         <div className="post-page">
           <Button onClick={() => router.push("/notes")}>
             <span className="blog-inline-icon">
-              <ArrowLeft {...iconParkOutline} size={14} aria-hidden />
+              <ArrowLeft size={14} aria-hidden />
               返回笔记
             </span>
           </Button>
@@ -169,7 +169,7 @@ function Post({ slug, initialDetail, jsonLd }: PostProps) {
             <div className="post-back">
               <Button type="text" onClick={() => router.push("/notes")}>
                 <span className="blog-inline-icon">
-                  <ArrowLeft {...iconParkOutline} size={14} aria-hidden />
+                  <ArrowLeft size={14} aria-hidden />
                   返回笔记
                 </span>
               </Button>
@@ -262,7 +262,7 @@ function Post({ slug, initialDetail, jsonLd }: PostProps) {
             {prev ? (
               <Button onClick={() => router.push(`/post/${prev.slug}`)}>
                 <span className="blog-inline-icon">
-                  <ArrowLeft {...iconParkOutline} size={14} aria-hidden />
+                  <ArrowLeft size={14} aria-hidden />
                   {pageTitle(prev)}
                 </span>
               </Button>
@@ -273,7 +273,7 @@ function Post({ slug, initialDetail, jsonLd }: PostProps) {
               <Button type="primary" onClick={() => router.push(`/post/${next.slug}`)}>
                 <span className="blog-inline-icon">
                   {pageTitle(next)}
-                  <ArrowRight {...iconParkOutline} size={14} aria-hidden />
+                  <ArrowRight size={14} aria-hidden />
                 </span>
               </Button>
             ) : (

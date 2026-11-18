@@ -1,5 +1,5 @@
 import type { PostListItem } from "@myblog/shared";
-import { PageLinkIcon } from "@/lib/iconPark";
+import { PageLinkIcon } from "@/lib/icons";
 import { pageTitle } from "@/lib/pageTree";
 
 type Props = {

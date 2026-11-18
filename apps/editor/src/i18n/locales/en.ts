@@ -658,7 +658,4 @@ export const en: Messages = {
     loginHint: "Log in to favorite pages shared by other people. You can't favorite your own.",
     downloadLatest: "Download latest",
   },
-  pwa: {
-    install: "Add to desktop",
-  },
 };

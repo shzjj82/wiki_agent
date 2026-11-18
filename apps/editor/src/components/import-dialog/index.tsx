@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Attention, FileText, Paperclip } from "@icon-park/react";
+import { FileText, Paperclip, TriangleAlert } from "lucide-react";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 export type ImportChoice = ImportMode | "attach";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 20 };
+const iconProps = { size: 20 };
 
 const PLACEMENTS = [
   { mode: "append", title: "importDialog.append" },
@@ -137,7 +137,7 @@ export function ImportDialog({ open, fileName, fileSize, busy, allowAttach, kind
         <DialogFooter className="items-center">
           {mode === "replace" ? (
             <p className="mr-auto flex items-center gap-1.5 text-xs text-destructive">
-              <Attention theme="outline" strokeWidth={3} size={13} />
+              <TriangleAlert size={13} />
               {t("importDialog.replaceHint")}
             </p>
           ) : null}

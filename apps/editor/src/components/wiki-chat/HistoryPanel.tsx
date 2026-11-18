@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { Delete, Plus, Search } from "@icon-park/react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { historyGroup, plainTalk, threadPreview, type HistoryGroupId, type WikiThread } from "@/lib/ai/wikiChatHistory";
-import { iconParkOutline } from "@/lib/iconPark";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -73,7 +72,6 @@ export function HistoryPanel({ threads, activeId, onNew, onOpen, onDelete, class
       <div className="flex shrink-0 items-center gap-1 px-2.5 pt-2.5">
         <div className="relative min-w-0 flex-1">
           <Search
-            {...iconParkOutline}
             size={14}
             className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground"
           />
@@ -86,7 +84,7 @@ export function HistoryPanel({ threads, activeId, onNew, onOpen, onDelete, class
           />
         </div>
         <Button type="button" variant="ghost" size="icon-xs" aria-label={t("wikiAsk.newChat")} onClick={onNew}>
-          <Plus {...iconParkOutline} size={14} />
+          <Plus size={14} />
         </Button>
       </div>
       {groups.length === 0 ? (
@@ -125,7 +123,7 @@ export function HistoryPanel({ threads, activeId, onNew, onOpen, onDelete, class
                           aria-label={t("wikiAsk.deleteChat")}
                           onClick={() => onDelete(thread.id)}
                         >
-                          <Delete {...iconParkOutline} size={13} />
+                          <Trash2 size={13} />
                         </Button>
                       </div>
                     </li>

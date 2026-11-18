@@ -5,7 +5,7 @@ import {
   type Category,
   type SiteSkillColor,
 } from "@myblog/shared";
-import { ArrowDown, ArrowUp, Close, Plus, Edit } from "@icon-park/react";
+import { ArrowDown, ArrowUp, Pencil, Plus, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 import { useCategories } from "@/lib/categories";
-import { iconParkOutline } from "@/lib/iconPark";
 import { SKILL_COLOR_HEX } from "@/lib/skillColors";
 import { cn } from "@/lib/utils";
 
@@ -245,7 +244,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: Props) {
                     disabled={index === 0}
                     onClick={() => void move(category, -1)}
                   >
-                    <ArrowUp {...iconParkOutline} size={14} />
+                    <ArrowUp size={14} />
                   </Button>
                   <Button
                     type="button"
@@ -255,7 +254,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: Props) {
                     disabled={index === ordered.length - 1}
                     onClick={() => void move(category, 1)}
                   >
-                    <ArrowDown {...iconParkOutline} size={14} />
+                    <ArrowDown size={14} />
                   </Button>
                   <Button
                     type="button"
@@ -264,7 +263,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: Props) {
                     title="编辑"
                     onClick={() => startEdit(category)}
                   >
-                    <Edit {...iconParkOutline} size={14} />
+                    <Pencil size={14} />
                   </Button>
                   <Button
                     type="button"
@@ -277,7 +276,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: Props) {
                       setDeleteTarget(category);
                     }}
                   >
-                    <Close {...iconParkOutline} size={14} />
+                    <X size={14} />
                   </Button>
                 </div>
               </li>
@@ -288,7 +287,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: Props) {
               完成
             </Button>
             <Button type="button" onClick={openCreate}>
-              <Plus {...iconParkOutline} size={14} className="mr-1" />
+              <Plus size={14} className="mr-1" />
               新建标签
             </Button>
           </DialogFooter>

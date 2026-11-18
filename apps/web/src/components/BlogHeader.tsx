@@ -1,13 +1,12 @@
 "use client";
 
 import type { Category } from "@myblog/shared";
-import { ArrowRight, Moon, Sun } from "@icon-park/react";
+import { ArrowRight, Moon, Sun } from "lucide-react";
 import { Card, Drawer } from "animal-island-ui";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCategories } from "@/lib/categories";
 import { useAuth } from "@/lib/auth";
-import { iconParkOutline } from "@/lib/iconPark";
 import { useTheme } from "@/lib/theme";
 
 type NavItem = {
@@ -27,7 +26,7 @@ function ThemeToggle({ dark, onToggle }: { dark: boolean; onToggle: () => void }
       title={dark ? "夜间" : "日间"}
       onClick={onToggle}
     >
-      <Icon {...iconParkOutline} size={18} />
+      <Icon size={18} />
     </button>
   );
 }
@@ -217,7 +216,7 @@ export function BlogHeader() {
                     <span>{item.hint}</span>
                   </span>
                   <span className="blog-drawer-item-go blog-inline-icon" aria-hidden>
-                    <ArrowRight {...iconParkOutline} size={16} />
+                    <ArrowRight size={16} />
                   </span>
                 </Card>
               </a>

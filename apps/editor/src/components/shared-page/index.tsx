@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Left } from "@icon-park/react";
+import { ChevronLeft } from "lucide-react";
 import type { EditorJsDocument } from "@myblog/shared";
 import { useTranslation } from "react-i18next";
 import { BlockEditor } from "@/components/block-editor";
@@ -10,7 +10,7 @@ import { useIsMobile } from "@/lib/useMediaQuery";
 import { ShareAccess } from "@/components/shared-page/ShareAccess";
 import { viewShare, type SharedPageNode, type SharedPageView } from "@/store/shareStore";
 
-const iconProps = { theme: "outline" as const, strokeWidth: 3, size: 16 };
+const iconProps = { size: 16 };
 
 type SharePage = {
   id: string;
@@ -126,7 +126,7 @@ export function SharedPage({ token }: { token: string }) {
       >
         {parent ? (
           <Button type="button" variant="ghost" size="sm" className="max-w-[40%] shrink-0" onClick={() => openPage(parent.id)}>
-            <Left {...iconProps} />
+            <ChevronLeft {...iconProps} />
             <span className="truncate">{parent.title}</span>
           </Button>
         ) : null}

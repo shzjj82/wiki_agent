@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { emptyEditorDocument, type EditorJsDocument } from "@myblog/shared";
-import { CheckOne, Notes } from "@icon-park/react";
+import { CircleCheck, FileText } from "lucide-react";
 import { BlockEditor } from "@/components/block-editor";
 import { imageBlockData } from "@/components/block-editor/tools/ImageBlockTool";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
-import { iconParkOutline } from "@/lib/iconPark";
 import { isImageFile } from "@/lib/document/fileKinds";
 import { cn } from "@/lib/utils";
 import {
@@ -330,7 +329,7 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
                     disabled={Boolean(busy)}
                     onClick={() => void onMarkDone()}
                   >
-                    <CheckOne {...iconParkOutline} size={14} />
+                    <CircleCheck size={14} />
                     {t("todo.finishTask")}
                   </Button>
                 ) : null}
@@ -343,7 +342,7 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
                     disabled={Boolean(busy)}
                     onClick={() => void openPage()}
                   >
-                    <Notes {...iconParkOutline} size={14} />
+                    <FileText size={14} />
                     {t("notify.openPage")}
                   </Button>
                 ) : null}
