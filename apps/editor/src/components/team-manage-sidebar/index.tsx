@@ -4,6 +4,8 @@ import { Close } from "@icon-park/react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { canManageTeam, loadTeam, refreshTeamCode, setTeamRole, type TeamInfo, type TeamMember, type TeamRole } from "@/store/teamStore";
 import { copyText } from "@/lib/clipboard";
@@ -11,7 +13,8 @@ import type { RemoteSession } from "@/store/remoteStore";
 
 type Props = {
   session: RemoteSession;
-  team: TeamInfo;
+  team: TeamInfo | null;
+  open: boolean;
   onClose: () => void;
   onChanged: () => void;
 };
@@ -42,15 +45,16 @@ function roleLabel(role: TeamRole): "team.roleOwner" | "team.roleDeveloper" | "t
   return "team.roleUser";
 }
 
-export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) {
+export function TeamManageSidebar({ session, team, open, onClose, onChanged }: Props) {
   const { t } = useTranslation();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [shown, setShown] = useState(team);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const code = shown.code;
+  const code = shown?.code;
 
   useEffect(() => {
+    if (!team) return;
     setShown(team);
     let alive = true;
     void loadTeam(session, team.id)
@@ -69,12 +73,12 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
 
   const detailRows = useMemo<DetailRow[]>(
     () => [
-      { field: t("team.name"), value: shown.name },
+      { field: t("team.name"), value: shown?.name ?? "" },
       { field: t("team.code"), value: code ?? "—" },
-      { field: t("team.registeredAt"), value: formatTime(shown.createdAt) },
-      { field: t("team.updatedAt"), value: formatTime(shown.updatedAt) },
+      { field: t("team.registeredAt"), value: formatTime(shown?.createdAt ?? "") },
+      { field: t("team.updatedAt"), value: formatTime(shown?.updatedAt ?? "") },
     ],
-    [code, shown.createdAt, shown.name, shown.updatedAt, t],
+    [code, shown?.createdAt, shown?.name, shown?.updatedAt, t],
   );
 
   const detailColumns = useMemo<ColumnDef<DetailRow, unknown>[]>(
@@ -92,7 +96,7 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
                   {t("team.copyCode")}
                 </Button>
               ) : null}
-              {canManageTeam(shown.role) ? (
+              {shown && canManageTeam(shown.role) ? (
                 <Button
                   type="button"
                   size="sm"
@@ -121,7 +125,7 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
           ),
       },
     ],
-    [busy, code, onChanged, session, shown.id, shown.role, t],
+    [busy, code, onChanged, session, shown, t],
   );
 
   const memberColumns = useMemo<ColumnDef<TeamMember, unknown>[]>(
@@ -136,16 +140,16 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
         accessorKey: "role",
         header: t("team.role"),
         cell: ({ row }) => (
-          <select
-            className="h-8 rounded-md border border-input bg-background px-2"
+          <Select
             value={row.original.role}
-            disabled={busy || !canManageTeam(shown.role)}
-            onChange={(event) => {
-              const role = event.target.value as TeamRole;
+            disabled={busy || !shown || !canManageTeam(shown.role)}
+            onValueChange={(value) => {
+              if (!shown) return;
+              const role = value as TeamRole;
               const accountId = row.original.accountId;
               setBusy(true);
               setError("");
-              void setTeamRole(session, team.id, accountId, role)
+              void setTeamRole(session, shown.id, accountId, role)
                 .then(() => {
                   setMembers((prev) => prev.map((item) => (item.accountId === accountId ? { ...item, role } : item)));
                   onChanged();
@@ -154,22 +158,31 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
                 .finally(() => setBusy(false));
             }}
           >
-            {ROLES.map((role) => (
-              <option key={role} value={role}>
-                {t(roleLabel(role))}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label={t("team.role")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLES.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {t(roleLabel(role))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ),
       },
     ],
-    [busy, onChanged, session, shown.role, t, team.id],
+    [busy, onChanged, session, shown, t],
   );
 
+  if (!shown) return null;
+
   return (
-    <aside className="fixed top-0 right-0 bottom-0 z-50 flex w-[min(720px,100vw)] flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-[-12px_0_32px_rgb(0_0_0/0.08)]">
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+    <SheetContent className="pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      <SheetDescription className="sr-only">{t("team.manageTeam")}</SheetDescription>
       <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
-        <p className="text-sm font-medium">{team.name}</p>
+        <SheetTitle>{shown.name}</SheetTitle>
         <Button type="button" variant="ghost" size="icon" aria-label={t("team.close")} onClick={onClose}>
           <Close theme="outline" strokeWidth={3} size={16} />
         </Button>
@@ -187,6 +200,7 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </TabsContent>
       </Tabs>
-    </aside>
+    </SheetContent>
+    </Sheet>
   );
 }

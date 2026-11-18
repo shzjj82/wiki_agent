@@ -1,10 +1,11 @@
-import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Down, More, Plus, Right, Share, Star } from "@icon-park/react";
 import { useTranslation } from "react-i18next";
 import { PageTree } from "@/components/page-tree";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ExportFormat } from "@/lib/document/export";
 import { pageTitle } from "@/i18n";
 import type { PageNode } from "@/store/localStore";
@@ -48,7 +49,7 @@ function MoreMenu({
 }: {
   menuId: string;
   openId: string | null;
-  onOpenId: (id: string | null) => void;
+  onOpenId: Dispatch<SetStateAction<string | null>>;
   label: string;
   align: "start" | "end";
   items: MenuItem[];
@@ -57,8 +58,12 @@ function MoreMenu({
   const open = openId === menuId;
   const hidden = hoverOnly && !open;
   return (
-    <Popover open={open} onOpenChange={(next) => onOpenId(next ? menuId : openId === menuId ? null : openId)}>
-      <PopoverTrigger asChild>
+    <DropdownMenu
+      modal={false}
+      open={open}
+      onOpenChange={(next) => onOpenId((current) => (next ? menuId : current === menuId ? null : current))}
+    >
+      <DropdownMenuTrigger asChild>
         <Button
           type="button"
           variant="ghost"
@@ -69,29 +74,24 @@ function MoreMenu({
         >
           <More {...iconProps} />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align={align} className="w-40">
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={align} className="w-40">
         {items.map((item) => (
           <div key={item.id}>
-            {item.separated ? <PopoverSeparator /> : null}
-            <button
-              type="button"
-              className={
-                item.danger
-                  ? "flex h-8 w-full items-center rounded-md px-2 text-left text-destructive hover:bg-muted"
-                  : "flex h-8 w-full items-center rounded-md px-2 text-left hover:bg-muted"
-              }
-              onClick={() => {
-                onOpenId(null);
+            {item.separated ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem
+              className={item.danger ? "text-destructive" : undefined}
+              onSelect={() => {
+                onOpenId((current) => (current === menuId ? null : current));
                 item.onClick();
               }}
             >
               {item.label}
-            </button>
+            </DropdownMenuItem>
           </div>
         ))}
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -282,21 +282,26 @@ function SidebarSectionsInner({
 
   return (
     <SoftScrollbar className="min-h-0 flex-1" contentClassName="flex flex-col gap-3 pb-2">
-      <section className="flex flex-col gap-0.5">
+      <Collapsible open={isOpen("personal")} className="flex flex-col gap-0.5">
         <SectionHeader
           title={t("sidebar.personal")}
           open={isOpen("personal")}
           onToggle={() => toggle("personal")}
           onCreate={() => onCreateInSection(null)}
           createLabel={t("common.newPage")}
+          foldable={hasPages(personal)}
           expandLabel={t("sidebar.expand")}
           collapseLabel={t("sidebar.collapse")}
         />
-        {isOpen("personal") && hasPages(personal) ? <PageTree {...treeShared} nodes={personal} embedded /> : null}
-      </section>
+        {hasPages(personal) ? (
+          <CollapsibleContent>
+            <PageTree {...treeShared} nodes={personal} embedded menuId={menuId} onMenuId={setMenuId} />
+          </CollapsibleContent>
+        ) : null}
+      </Collapsible>
 
       {visibleFavorites.length > 0 ? (
-        <section className="flex flex-col gap-0.5">
+        <Collapsible open={isOpen("favorites")} className="flex flex-col gap-0.5">
           <SectionHeader
             title={t("sidebar.favorites")}
             open={isOpen("favorites")}
@@ -304,7 +309,7 @@ function SidebarSectionsInner({
             expandLabel={t("sidebar.expand")}
             collapseLabel={t("sidebar.collapse")}
           />
-          {isOpen("favorites") ? (
+          <CollapsibleContent>
             <ul className="flex flex-col gap-0.5">
               {visibleFavorites.map((item) => (
                 <li key={item.token}>
@@ -325,12 +330,12 @@ function SidebarSectionsInner({
                 </li>
               ))}
             </ul>
-          ) : null}
-        </section>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
 
       {shares.length > 0 ? (
-      <section className="flex flex-col gap-0.5">
+      <Collapsible open={isOpen("shares")} className="flex flex-col gap-0.5">
         <SectionHeader
           title={t("sidebar.shares")}
           open={isOpen("shares")}
@@ -338,7 +343,7 @@ function SidebarSectionsInner({
           expandLabel={t("sidebar.expand")}
           collapseLabel={t("sidebar.collapse")}
         />
-        {isOpen("shares") ? (
+        <CollapsibleContent>
             <ul className="flex flex-col gap-0.5">
               {shares.map((share) => (
                 <li key={share.token}>
@@ -373,12 +378,12 @@ function SidebarSectionsInner({
                 </li>
               ))}
             </ul>
-        ) : null}
-      </section>
+        </CollapsibleContent>
+      </Collapsible>
       ) : null}
 
       {session && teams.length > 0 ? (
-        <section className="flex flex-col gap-0.5">
+        <Collapsible open={isOpen("teams")} className="flex flex-col gap-0.5">
           <SectionHeader
             title={t("sidebar.teams")}
             open={isOpen("teams")}
@@ -402,26 +407,23 @@ function SidebarSectionsInner({
             collapseLabel={t("sidebar.collapse")}
             front
           />
-          {isOpen("teams")
-            ? teams.map((team) => {
+          <CollapsibleContent className="flex flex-col gap-0.5">
+            {teams.map((team) => {
                 const key = `team:${team.id}`;
                 const list = byTeam.get(team.id) ?? [];
                 const open = isOpen(key);
                 const pages = hasPages(list);
-                const menu = [
-                  onTeamDetails ? { id: "details", label: t("team.manageTeam"), onClick: () => onTeamDetails(team) } : null,
-                  onInviteTeam ? { id: "invite", label: t("team.inviteMembers"), onClick: () => onInviteTeam(team) } : null,
-                  canManageTeam(team.role)
-                    ? onDissolveTeam
-                      ? { id: "dissolve", label: t("team.dissolve"), danger: true, onClick: () => onDissolveTeam(team) }
-                      : null
-                    : onLeaveTeam
-                      ? { id: "leave", label: t("team.leave"), danger: true, onClick: () => onLeaveTeam(team) }
-                      : null,
-                  canCreateInTeam(team.id) ? { id: "page", label: t("common.newPage"), separated: true, onClick: () => onCreateInSection(team.id) } : null,
-                ].filter((item) => item !== null);
+                const menu: MenuItem[] = [];
+                if (onTeamDetails) menu.push({ id: "details", label: t("team.manageTeam"), onClick: () => onTeamDetails(team) });
+                if (onInviteTeam) menu.push({ id: "invite", label: t("team.inviteMembers"), onClick: () => onInviteTeam(team) });
+                if (canManageTeam(team.role)) {
+                  if (onDissolveTeam) menu.push({ id: "dissolve", label: t("team.dissolve"), danger: true, onClick: () => onDissolveTeam(team) });
+                } else if (onLeaveTeam) {
+                  menu.push({ id: "leave", label: t("team.leave"), danger: true, onClick: () => onLeaveTeam(team) });
+                }
+                if (canCreateInTeam(team.id)) menu.push({ id: "page", label: t("common.newPage"), separated: true, onClick: () => onCreateInSection(team.id) });
                 return (
-                  <div key={team.id} className="flex flex-col gap-0.5 pl-6">
+                  <Collapsible key={team.id} open={pages ? open : true} className="flex flex-col gap-0.5 pl-6">
                     <SectionHeader
                       title={team.name}
                       open={open}
@@ -430,19 +432,23 @@ function SidebarSectionsInner({
                       foldable={pages}
                       trailing={
                         menu.length > 0 ? (
-                          <MoreMenu menuId={team.id} openId={menuId} onOpenId={setMenuId} label={team.name} align="end" items={menu} hoverOnly />
+                          <MoreMenu menuId={`team-menu:${team.id}`} openId={menuId} onOpenId={setMenuId} label={team.name} align="end" items={menu} hoverOnly />
                         ) : undefined
                       }
                       expandLabel={t("sidebar.expand")}
                       collapseLabel={t("sidebar.collapse")}
                       underParent
                     />
-                    {open && hasPages(list) ? <PageTree {...treeShared} nodes={list} embedded /> : null}
-                  </div>
+                    {pages ? (
+                      <CollapsibleContent>
+                        <PageTree {...treeShared} nodes={list} embedded menuId={menuId} onMenuId={setMenuId} />
+                      </CollapsibleContent>
+                    ) : null}
+                  </Collapsible>
                 );
-              })
-            : null}
-        </section>
+              })}
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
     </SoftScrollbar>
   );

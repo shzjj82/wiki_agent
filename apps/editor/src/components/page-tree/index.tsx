@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from "react";
 import { Delete, Down, More, Notes, Plus, Right, Share, ToTop } from "@icon-park/react";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
-import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { pageTitle } from "@/i18n";
 import type { ExportFormat } from "@/lib/document/export";
 import { useTranslation } from "react-i18next";
@@ -26,7 +26,14 @@ type Props = {
   teamNames?: Record<string, string>;
   /** 嵌在侧栏分区里时由外层滚动，不再自带 SoftScrollbar */
   embedded?: boolean;
+  /** 和侧栏其它菜单共用，保证同时只打开一个 */
+  menuId?: string | null;
+  onMenuId?: Dispatch<SetStateAction<string | null>>;
 };
+
+function pageMenuKey(id: string) {
+  return `page:${id}`;
+}
 
 function buildTree(nodes: PageNode[]): TreeNode[] {
   const ids = new Set(nodes.map((node) => node.id));
@@ -106,26 +113,9 @@ const RowMenu = memo(function RowMenu({
       ? "relative z-20 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
       : "relative z-20 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sidebar-accent hover:text-foreground focus-visible:opacity-100 max-sm:opacity-100";
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className={triggerClass}
-        aria-label={t("pageTree.more")}
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenChange(true);
-        }}
-      >
-        <More {...iconProps} size={14} />
-      </button>
-    );
-  }
-
   return (
-    <Popover open onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
+    <DropdownMenu modal={false} open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
         <button
           type="button"
           className={triggerClass}
@@ -135,70 +125,39 @@ const RowMenu = memo(function RowMenu({
         >
           <More {...iconProps} size={14} />
         </button>
-      </PopoverTrigger>
-      <PopoverContent>
-        <button
-          type="button"
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-          onClick={() => {
-            onOpenChange(false);
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem
+          onSelect={() => {
             onExpand(nodeId);
             onCreateChild(nodeId);
           }}
         >
           <Plus {...iconProps} size={14} />
           {t("pageTree.addSubpage")}
-        </button>
+        </DropdownMenuItem>
         {onShare ? (
-          <button
-            type="button"
-            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-            onClick={() => {
-              onOpenChange(false);
-              onShare(nodeId);
-            }}
-          >
+          <DropdownMenuItem onSelect={() => onShare(nodeId)}>
             <Share {...iconProps} size={14} />
             {t("share.menu")}
-          </button>
+          </DropdownMenuItem>
         ) : null}
-        <PopoverSeparator />
-        <button
-          type="button"
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-          onClick={() => {
-            onOpenChange(false);
-            onExport(nodeId, "pdf");
-          }}
-        >
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onExport(nodeId, "pdf")}>
           <FileTypeIcon type="pdf" />
           {t("common.exportPdf")}
-        </button>
-        <button
-          type="button"
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-          onClick={() => {
-            onOpenChange(false);
-            onExport(nodeId, "word");
-          }}
-        >
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onExport(nodeId, "word")}>
           <FileTypeIcon type="word" />
           {t("common.exportWord")}
-        </button>
-        <PopoverSeparator />
-        <button
-          type="button"
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-destructive hover:bg-muted"
-          onClick={() => {
-            onOpenChange(false);
-            onDelete(nodeId);
-          }}
-        >
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(nodeId)}>
           <Delete {...iconProps} size={14} />
           {t("common.delete")}
-        </button>
-      </PopoverContent>
-    </Popover>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 });
 
@@ -214,13 +173,17 @@ function PageTreeInner({
   onShare,
   teamNames = {},
   embedded = false,
+  menuId: menuIdProp,
+  onMenuId,
 }: Props) {
   const { t } = useTranslation();
   /** 默认折叠。当前页和它的上级会展开，刷新后按地址里的页面恢复。 */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null | "root">(null);
-  const [menuId, setMenuId] = useState<string | null>(null);
+  const [localMenuId, setLocalMenuId] = useState<string | null>(null);
+  const menuId = onMenuId ? (menuIdProp ?? null) : localMenuId;
+  const setMenuId = onMenuId ?? setLocalMenuId;
   const draggingRef = useRef<string | null>(null);
   const blockedRef = useRef<Set<string> | null>(null);
   const tree = useMemo(() => filterTree(buildTree(nodes), query), [nodes, query]);
@@ -325,9 +288,13 @@ function PageTreeInner({
     onReparent(id, parentId);
   }
 
-  const onMenuOpenChange = useCallback((id: string, open: boolean) => {
-    setMenuId(open ? id : null);
-  }, []);
+  const onMenuOpenChange = useCallback(
+    (id: string, open: boolean) => {
+      const key = pageMenuKey(id);
+      setMenuId((current) => (open ? key : current === key ? null : current));
+    },
+    [setMenuId],
+  );
 
   const dragging = draggingId ? nodes.find((node) => node.id === draggingId) : undefined;
 
@@ -397,7 +364,7 @@ function PageTreeInner({
             </button>
             <RowMenu
               nodeId={node.id}
-              open={menuId === node.id}
+              open={menuId === pageMenuKey(node.id)}
               selected={selected}
               onOpenChange={(next) => onMenuOpenChange(node.id, next)}
               onCreateChild={onCreateChild}

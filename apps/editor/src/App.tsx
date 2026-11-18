@@ -1996,10 +1996,11 @@ function AppMain() {
         onCancel={closeImport}
         onConfirm={(mode) => void applyImport(mode)}
       />
-      {session && detailTeam ? (
+      {session ? (
         <TeamManageSidebar
           session={session}
           team={detailTeam}
+          open={detailTeam !== null}
           onClose={() => setDetailTeam(null)}
           onChanged={() => {
             void listTeams(session).then((list) => {
