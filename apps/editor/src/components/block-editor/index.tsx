@@ -694,9 +694,11 @@ export function BlockEditor({
     const refresh = () => refreshBlockKind();
     holder.addEventListener("keyup", refresh);
     holder.addEventListener("mouseup", refresh);
+    holder.addEventListener("focusin", refresh);
     return () => {
       holder.removeEventListener("keyup", refresh);
       holder.removeEventListener("mouseup", refresh);
+      holder.removeEventListener("focusin", refresh);
     };
     // refreshBlockKind 只读 ref + setState，不需要进依赖
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -704,6 +706,8 @@ export function BlockEditor({
 
   /* 放在所有 useState 之后：压缩后如果提前引用会命中 TDZ（Cannot access before initialization） */
   const showBar = isMobile && ready && !readOnly && editing && Boolean(barSlot);
+  /** 代码块不提供正文样式快捷键：那些转换对代码没有意义 */
+  const showStyleShortcuts = blockKind !== "code";
   const mobileStyles = embed ? blockStyles.filter((item) => item.key !== "todo") : blockStyles;
   const barIconProps = { theme: "outline" as const, strokeWidth: 3, size: 20 };
   const barButtonClass =
@@ -822,29 +826,33 @@ export function BlockEditor({
               <button type="button" aria-label={t("app.insertBlock")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openBlockMenu}>
                 <Plus {...barIconProps} />
               </button>
-              {/* 字体/块样式直接铺在底栏上，点哪个就是哪种，不再弹菜单 */}
-              <div className="editor-style-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-                {mobileStyles.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    aria-label={t(item.label)}
-                    aria-pressed={blockKind === item.key}
-                    className={cn(
-                      "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg transition-colors",
-                      blockKind === item.key ? "bg-muted text-foreground" : "text-foreground/70 active:bg-muted",
-                    )}
-                    onPointerDown={keepEditorFocus}
-                    onMouseDown={keepEditorFocus}
-                    onClick={() => applyBlockStyle(item.tool, item.data)}
-                  >
-                    <span
-                      className="pointer-events-none flex h-[18px] w-[18px] items-center justify-center"
-                      dangerouslySetInnerHTML={{ __html: item.icon }}
-                    />
-                  </button>
-                ))}
-              </div>
+              {/* 字体/块样式直接铺在底栏上，点哪个就是哪种，不再弹菜单。代码块里不展示 */}
+              {showStyleShortcuts ? (
+                <div className="editor-style-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+                  {mobileStyles.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-label={t(item.label)}
+                      aria-pressed={blockKind === item.key}
+                      className={cn(
+                        "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        blockKind === item.key ? "bg-muted text-foreground" : "text-foreground/70 active:bg-muted",
+                      )}
+                      onPointerDown={keepEditorFocus}
+                      onMouseDown={keepEditorFocus}
+                      onClick={() => applyBlockStyle(item.tool, item.data)}
+                    >
+                      <span
+                        className="pointer-events-none flex h-[18px] w-[18px] items-center justify-center"
+                        dangerouslySetInnerHTML={{ __html: item.icon }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="min-w-0 flex-1" />
+              )}
               {!embed ? (
                 <button type="button" aria-label={t("app.aiChatTitle")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openAi}>
                   <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>

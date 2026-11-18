@@ -13,6 +13,8 @@ import { Down } from "@icon-park/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { iconParkOutline } from "@/lib/iconPark";
+import { useVisualViewport } from "@/lib/useKeyboardInset";
+import { useIsMobile } from "@/lib/useMediaQuery";
 
 type Props = {
   children: ReactNode;
@@ -26,6 +28,18 @@ type Props = {
 };
 
 const NEAR_BOTTOM = 56;
+const SKIP_INPUT = new Set(["button", "checkbox", "radio", "file", "range", "submit", "reset", "image", "hidden"]);
+
+/** 光标在正文、代码或输入框里时，手机键盘是弹起的 */
+function textFieldFocused(node: Element | null): boolean {
+  if (node instanceof HTMLTextAreaElement) {
+    return true;
+  }
+  if (node instanceof HTMLInputElement) {
+    return !SKIP_INPUT.has(node.type);
+  }
+  return node instanceof HTMLElement && node.isContentEditable;
+}
 
 function nearBottom(el: HTMLElement) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM;
@@ -40,6 +54,9 @@ export const SoftScrollbar = forwardRef<HTMLDivElement, Props>(function SoftScro
   const timer = useRef<number | null>(null);
   const atBottom = useRef(true);
   const [showJump, setShowJump] = useState(false);
+  const [fieldFocused, setFieldFocused] = useState(false);
+  const isMobile = useIsMobile();
+  const { keyboardOpen } = useVisualViewport();
 
   useImperativeHandle(ref, () => localRef.current as HTMLDivElement);
 
@@ -71,6 +88,26 @@ export const SoftScrollbar = forwardRef<HTMLDivElement, Props>(function SoftScro
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setFieldFocused(false);
+      return;
+    }
+    let frame = 0;
+    const sync = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => setFieldFocused(textFieldFocused(document.activeElement)));
+    };
+    sync();
+    document.addEventListener("focusin", sync);
+    document.addEventListener("focusout", sync);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("focusin", sync);
+      document.removeEventListener("focusout", sync);
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     const el = localRef.current;
@@ -117,7 +154,7 @@ export const SoftScrollbar = forwardRef<HTMLDivElement, Props>(function SoftScro
       <div ref={localRef} className="ws-scrollbar h-full" style={style} onScroll={handleScroll}>
         <div className={cn("ws-scrollbar__view", contentClassName)}>{children}</div>
       </div>
-      {jumpToBottomLabel && showJump ? (
+      {jumpToBottomLabel && showJump && !keyboardOpen && !(isMobile && fieldFocused) ? (
         <Button
           type="button"
           size="icon"

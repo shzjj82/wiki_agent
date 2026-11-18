@@ -16,6 +16,7 @@ import { WikiChat } from "@/components/wiki-chat";
 import { WorkDesk } from "@/components/work-desk";
 import { ImportDialog, type ImportChoice } from "@/components/import-dialog";
 import { LanguageSwitch } from "@/components/language-switch";
+import { PwaInstallButton } from "@/components/pwa-install";
 import { NotifyBell } from "@/components/notify-bell";
 import { TodoDetailDialog, type TodoDetailTarget } from "@/components/notify-bell/TodoDetailDialog";
 import { ShareDialog } from "@/components/share-dialog";
@@ -33,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/useMediaQuery";
-import { useVisualViewport } from "@/lib/useKeyboardInset";
+import { useRevealCaret, useVisualViewport } from "@/lib/useKeyboardInset";
 import {
   createLocal,
   ensureLocalPages,
@@ -162,6 +163,7 @@ function AppMain() {
   const isMobile = useIsMobile();
   /** 可视视口（top + height）：外壳永远精确覆盖用户看到的那块区域 */
   const viewport = useVisualViewport();
+  useRevealCaret(isMobile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** 移动端编辑器底栏的挂载点：底栏由 BlockEditor 通过 portal 渲染进来，
@@ -1630,6 +1632,7 @@ function AppMain() {
               </Button>
             ) : null}
             <LanguageSwitch onChange={(locale) => void switchLocale(locale)} />
+            <PwaInstallButton variant="header" />
           </span>
           {/* 移动端：更多菜单 + AI */}
           <span className="inline-flex shrink-0 items-center gap-1 sm:hidden">
@@ -1696,6 +1699,7 @@ function AppMain() {
                   {t("common.delete")}
                 </MenuRow>
                 <PopoverSeparator />
+                <PwaInstallButton variant="menu" onOpen={() => setMobileMenuOpen(false)} />
                 <div className="flex items-center justify-between gap-2 px-2 py-1">
                   <span className="text-xs text-muted-foreground">{t("common.language")}</span>
                   <LanguageSwitch onChange={(locale) => void switchLocale(locale)} />

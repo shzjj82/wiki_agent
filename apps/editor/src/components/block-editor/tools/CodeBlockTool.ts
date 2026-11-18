@@ -103,6 +103,25 @@ export class CodeBlockTool implements BlockTool {
         { signal },
       );
       input.addEventListener("keydown", (event) => this.onKeyDown(event, input), { signal });
+      // 窄屏不允许把光标放进代码：一聚焦 iOS 会整页放大，也进不了正常编辑
+      const mobileCode = window.matchMedia("(max-width: 767px)");
+      const lockMobileFocus = () => {
+        input.disabled = mobileCode.matches;
+        if (mobileCode.matches && document.activeElement === input) {
+          input.blur();
+        }
+      };
+      lockMobileFocus();
+      mobileCode.addEventListener("change", lockMobileFocus, { signal });
+      input.addEventListener(
+        "focus",
+        () => {
+          if (mobileCode.matches) {
+            input.blur();
+          }
+        },
+        { signal },
+      );
       this.input = input;
       sizer.append(input);
     } else {

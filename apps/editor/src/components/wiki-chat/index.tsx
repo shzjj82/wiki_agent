@@ -48,6 +48,7 @@ import { iconParkOutline } from "@/lib/iconPark";
 import { t } from "@/i18n";
 import { useTranslation } from "react-i18next";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
+import { useVisualViewport } from "@/lib/useKeyboardInset";
 import { useIsMobile } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { HistoryPanel, HISTORY_SIDEBAR_W } from "./HistoryPanel";
@@ -231,6 +232,7 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
   const { t: tr } = useTranslation();
   const desktop = isDesktopApp();
   const isMobile = useIsMobile();
+  const viewport = useVisualViewport();
   const [frame, setFrame] = useState<Frame>(() => (typeof window === "undefined" ? { x: 24, y: 24, w: 400, h: DEFAULT_H } : loadFrame()));
   const [prompt, setPrompt] = useState("");
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
@@ -709,11 +711,15 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
       className={cn(
         "fixed z-50 flex flex-col overflow-hidden bg-background",
         isMobile
-          ? "inset-0 h-[100dvh] w-full rounded-none border-0 shadow-none transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none"
+          ? "inset-x-0 w-full rounded-none border-0 shadow-none transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none"
           : "rounded-2xl border border-border/50 shadow-[0_18px_50px_rgb(0_0_0/0.14)]",
         isMobile && (sheetEntered ? "translate-y-0" : "translate-y-full"),
       )}
-      style={isMobile ? undefined : { left: box.left, top: frame.y, width: box.width, height: frame.h }}
+      style={
+        isMobile
+          ? { top: viewport.top, height: viewport.height }
+          : { left: box.left, top: frame.y, width: box.width, height: frame.h }
+      }
       onPointerMove={isMobile ? undefined : onDragMove}
       onPointerUp={isMobile ? undefined : endDrag}
       onPointerCancel={isMobile ? undefined : endDrag}

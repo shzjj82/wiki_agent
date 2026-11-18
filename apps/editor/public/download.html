@@ -6,6 +6,12 @@
     <title>下载 wiki-agent</title>
     <meta name="description" content="wiki-agent 桌面端与网页版下载。本地优先的知识库编辑器，支持 macOS、Windows 与浏览器，数据默认保存在本机。" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/pwa-192.png" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="wiki-agent" />
     <style>
       /* 设计令牌与应用保持一致：白底、#191919 正文、#e9e9e7 描边、#f7f7f5 填充 */
       :root {
@@ -47,8 +53,9 @@
       .brand img { width: 26px; height: 26px; border-radius: 6px; }
       .nav-links { display: flex; gap: 22px; font-size: 14px; color: var(--ink-2); }
       .nav-links a:hover { color: var(--ink); }
-      .nav-cta { margin-left: auto; }
+      .nav-cta { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
+      .btn[hidden] { display: none; }
       .btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         border-radius: 10px; font-size: 15px; font-weight: 500;
@@ -222,7 +229,10 @@
           <a href="#download">下载</a>
           <a href="#data">数据</a>
         </nav>
-        <span class="nav-cta"><a class="btn btn-primary btn-sm" href="/app">打开 wiki-agent</a></span>
+        <span class="nav-cta">
+          <button type="button" class="btn btn-ghost btn-sm" id="pwa-install" hidden>添加到桌面</button>
+          <a class="btn btn-primary btn-sm" href="/app">打开 wiki-agent</a>
+        </span>
       </div>
     </header>
 
@@ -557,6 +567,41 @@
             initPicker(versions, latestVersion);
           })
           .catch(function () {});
+      })();
+
+      (function () {
+        var button = document.getElementById("pwa-install");
+        if (!button) return;
+        var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+        if (standalone) return;
+        var deferred = null;
+        window.addEventListener("beforeinstallprompt", function (event) {
+          event.preventDefault();
+          deferred = event;
+          button.hidden = false;
+        });
+        window.addEventListener("appinstalled", function () {
+          deferred = null;
+          button.hidden = true;
+        });
+        if (window.isSecureContext && "serviceWorker" in navigator) {
+          window.addEventListener("load", function () {
+            navigator.serviceWorker.register("/sw.js").catch(function () {});
+          });
+        }
+        button.addEventListener("click", function () {
+          if (!deferred) return;
+          var promptEvent = deferred;
+          deferred = null;
+          button.hidden = true;
+          promptEvent.prompt().then(function () {
+            return promptEvent.userChoice;
+          }).then(function (choice) {
+            if (!choice || choice.outcome === "accepted") return;
+            deferred = promptEvent;
+            button.hidden = false;
+          });
+        });
       })();
     </script>
   </body>

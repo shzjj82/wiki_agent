@@ -656,6 +656,9 @@ export const zh = {
     loginHint: "登录后可以收藏别人分享的文章。自己的文章不能收藏。",
     downloadLatest: "下载最新版",
   },
+  pwa: {
+    install: "添加到桌面",
+  },
 };
 
 export type Messages = { [N in keyof typeof zh]: { [K in keyof (typeof zh)[N]]: string } };

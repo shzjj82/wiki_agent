@@ -4,9 +4,12 @@ import "@/i18n";
 import { App } from "./App";
 import { MarkdownImportPage } from "@/components/markdown-import";
 import { SharedPage } from "@/components/shared-page";
+import { registerPwa } from "@/components/pwa-install";
 import { isMarkdownRoute } from "@/lib/route";
 import { isShareRoute, shareTokenFromPath } from "@/lib/shareRoute";
 import "./styles/index.css";
+
+registerPwa();
 
 function Root() {
   const [path, setPath] = useState(() => window.location.pathname);

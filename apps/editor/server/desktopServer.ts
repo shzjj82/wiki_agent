@@ -19,6 +19,7 @@ const MIME: Record<string, string> = {
   ".gif": "image/gif",
   ".ico": "image/x-icon",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
   ".ttf": "font/ttf",
@@ -199,8 +200,8 @@ function proxyWsUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, gate
 }
 
 function cacheControlFor(file: string): string {
-  if (file.endsWith(".html")) {
-    // 页面本身不缓存：部署后要立刻生效，资源是带 hash 的
+  if (file.endsWith(".html") || file.endsWith("/sw.js") || file.endsWith(".webmanifest")) {
+    // 页面、安装清单和 Service Worker 不缓存：部署后要立刻生效
     return "no-cache";
   }
   return HASHED_ASSET.test(file) ? "public, max-age=31536000, immutable" : "public, max-age=3600";
