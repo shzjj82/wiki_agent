@@ -139,7 +139,7 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
           <select
             className="h-8 rounded-md border border-input bg-background px-2"
             value={row.original.role}
-            disabled={busy}
+            disabled={busy || !canManageTeam(shown.role)}
             onChange={(event) => {
               const role = event.target.value as TeamRole;
               const accountId = row.original.accountId;
@@ -163,7 +163,7 @@ export function TeamManageSidebar({ session, team, onClose, onChanged }: Props) 
         ),
       },
     ],
-    [busy, onChanged, session, t, team.id],
+    [busy, onChanged, session, shown.role, t, team.id],
   );
 
   return (

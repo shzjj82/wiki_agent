@@ -83,13 +83,17 @@ import { readSyncSettings, writeSyncSettings, type SyncSettings } from "@/store/
 import {
   canManageTeam,
   canWriteTeam,
+  dissolveTeam,
+  leaveTeam,
   listTeams,
   readActiveTeamId,
   writeActiveTeamId,
   type TeamInfo,
 } from "@/store/teamStore";
+import { TeamListPanel } from "@/components/team-list-panel";
 import { TeamManageSidebar } from "@/components/team-manage-sidebar";
 import { pageTitle, setAppLocale, type AppLocale } from "@/i18n";
+import { copyText } from "@/lib/clipboard";
 import { documentFromMarkdown, titleFromMarkdown } from "@/lib/document/fromMarkdown";
 import { exportDocument, type ExportFormat } from "@/lib/document/export";
 import { fileKind, isImageFile } from "@/lib/document/fileKinds";
@@ -218,7 +222,12 @@ function AppMain() {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [teamsReady, setTeamsReady] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
-  const [teamManageOpen, setTeamManageOpen] = useState(false);
+  const [teamsListOpen, setTeamsListOpen] = useState(false);
+  const [detailTeam, setDetailTeam] = useState<TeamInfo | null>(null);
+  const [inviteTeam, setInviteTeam] = useState<TeamInfo | null>(null);
+  const [leaveTarget, setLeaveTarget] = useState<TeamInfo | null>(null);
+  const [dissolveTarget, setDissolveTarget] = useState<TeamInfo | null>(null);
+  const [emptyTeamId, setEmptyTeamId] = useState<string | null>(null);
   const [teamPanel, setTeamPanel] = useState<"create" | "join">("create");
   const [activeTeamId, setActiveTeamId] = useState<string | null>(readActiveTeamId);
   const [exportOpen, setExportOpen] = useState(false);
@@ -625,6 +634,10 @@ function AppMain() {
   function logout() {
     void logoutRemote(session);
     setSession(null);
+    setTeamsListOpen(false);
+    setEmptyTeamId(null);
+    setDetailTeam(null);
+    setInviteTeam(null);
     setWikiOpen(false);
     setWorkOpen(false);
     setAuthOpen(false);
@@ -673,6 +686,8 @@ function AppMain() {
   }
 
   async function openPage(id: string, history: "push" | "replace" | "none" = "push") {
+    setTeamsListOpen(false);
+    setEmptyTeamId(null);
     setSidebarOpen(false);
     if (history !== "none") {
       writeAppLocation(id, pageRef.current?.id === id ? "replace" : history);
@@ -746,6 +761,8 @@ function AppMain() {
   }
 
   async function createPage(parentId: string | null, teamId?: string | null) {
+    setTeamsListOpen(false);
+    setEmptyTeamId(null);
     setError("");
     try {
       const inherited = parentId ? (nodes.find((node) => node.id === parentId)?.teamId ?? null) : null;
@@ -1386,6 +1403,27 @@ function AppMain() {
           session={session}
           canCreateInTeam={canCreateInTeam}
           onCreateInSection={onSidebarCreateInSection}
+          onCreateTeam={
+            session
+              ? () => {
+                  setTeamPanel("create");
+                  setTeamOpen(true);
+                }
+              : undefined
+          }
+          onJoinTeam={
+            session
+              ? () => {
+                  setTeamPanel("join");
+                  setTeamOpen(true);
+                }
+              : undefined
+          }
+          onTeamDetails={session ? (team) => setDetailTeam(team) : undefined}
+          onInviteTeam={session ? (team) => setInviteTeam(team) : undefined}
+          onLeaveTeam={session ? (team) => setLeaveTarget(team) : undefined}
+          onDissolveTeam={session ? (team) => setDissolveTarget(team) : undefined}
+          onOpenEmptyTeam={session ? (teamId) => setEmptyTeamId(teamId) : undefined}
           onOpen={onSidebarOpen}
           onCreateChild={onSidebarCreateChild}
           onDelete={onSidebarDelete}
@@ -1414,7 +1452,10 @@ function AppMain() {
                   teamMode={activeTeamId !== null}
                   canSwitchTeam={teams.length > 0}
                   canManageTeam={canManageTeam(teams.find((team) => team.id === activeTeamId)?.role)}
-                  onManageTeam={() => setTeamManageOpen(true)}
+                  onManageTeam={() => {
+                    const current = teams.find((team) => team.id === activeTeamId);
+                    if (current) setDetailTeam(current);
+                  }}
                   onToggleTeamMode={() => {
                     if (teams.length === 0) {
                       return;
@@ -1512,6 +1553,12 @@ function AppMain() {
               }
             }}
           />
+          {teamsListOpen ? (
+            <Button type="button" variant="ghost" size="icon" aria-label={t("team.close")} onClick={() => setTeamsListOpen(false)}>
+              <CloseSmall {...iconProps} />
+            </Button>
+          ) : (
+          <>
           {/* 桌面端：完整按钮组 */}
           <span className="hidden shrink-0 items-center gap-2 sm:inline-flex">
             {session && syncSettings.enabled && syncPlan && !syncStep ? (
@@ -1525,7 +1572,7 @@ function AppMain() {
               variant="outline"
               size="icon"
               aria-label={t("app.undo")}
-              disabled={!page || pageReadOnly || !historyState.canUndo}
+              disabled={!page || emptyTeamId !== null || pageReadOnly || !historyState.canUndo}
               onClick={() => historyRef.current?.undo()}
             >
               <Undo {...iconProps} />
@@ -1535,18 +1582,18 @@ function AppMain() {
               variant="outline"
               size="icon"
               aria-label={t("app.redo")}
-              disabled={!page || pageReadOnly || !historyState.canRedo}
+              disabled={!page || emptyTeamId !== null || pageReadOnly || !historyState.canRedo}
               onClick={() => historyRef.current?.redo()}
             >
               <Redo {...iconProps} />
             </Button>
-            <Button type="button" variant="outline" size="sm" disabled={!page} onClick={() => importInputRef.current?.click()}>
+            <Button type="button" variant="outline" size="sm" disabled={!page || emptyTeamId !== null} onClick={() => importInputRef.current?.click()}>
               <Download {...iconProps} />
               {t("common.import")}
             </Button>
             <Popover open={exportOpen} onOpenChange={setExportOpen}>
               <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm" disabled={!page}>
+                <Button type="button" variant="outline" size="sm" disabled={!page || emptyTeamId !== null}>
                   <Export {...iconProps} />
                   {t("app.export")}
                 </Button>
@@ -1570,7 +1617,7 @@ function AppMain() {
                 ))}
               </PopoverContent>
             </Popover>
-            <Button type="button" variant="outline" size="sm" disabled={!page || pageReadOnly} onClick={() => page && void removePage(page.id)}>
+            <Button type="button" variant="outline" size="sm" disabled={!page || emptyTeamId !== null || pageReadOnly} onClick={() => page && void removePage(page.id)}>
               <Delete {...iconProps} />
               {t("common.delete")}
             </Button>
@@ -1609,7 +1656,7 @@ function AppMain() {
                 ) : null}
                 <MenuRow
                   icon={<Download {...iconProps} />}
-                  disabled={!page}
+                  disabled={!page || emptyTeamId !== null}
                   onClick={() => {
                     setMobileMenuOpen(false);
                     importInputRef.current?.click();
@@ -1619,7 +1666,7 @@ function AppMain() {
                 </MenuRow>
                 <MenuRow
                   icon={<FileTypeIcon type="pdf" />}
-                  disabled={!page}
+                  disabled={!page || emptyTeamId !== null}
                   onClick={() => {
                     setMobileMenuOpen(false);
                     if (page) void exportPage(page.id, "pdf");
@@ -1629,7 +1676,7 @@ function AppMain() {
                 </MenuRow>
                 <MenuRow
                   icon={<FileTypeIcon type="word" />}
-                  disabled={!page}
+                  disabled={!page || emptyTeamId !== null}
                   onClick={() => {
                     setMobileMenuOpen(false);
                     if (page) void exportPage(page.id, "word");
@@ -1640,7 +1687,7 @@ function AppMain() {
                 <MenuRow
                   icon={<Delete {...iconProps} />}
                   danger
-                  disabled={!page || pageReadOnly}
+                  disabled={!page || emptyTeamId !== null || pageReadOnly}
                   onClick={() => {
                     setMobileMenuOpen(false);
                     if (page) void removePage(page.id);
@@ -1664,13 +1711,28 @@ function AppMain() {
               </Button>
             ) : null}
           </span>
+          </>
+          )}
         </header>
         <FileDropZone
-          hasPage={Boolean(page)}
+          hasPage={Boolean(page) && !teamsListOpen && !emptyTeamId}
           className="min-h-0 flex-1"
           onDrop={(files, point) => void dropFiles(files, point)}
         >
-          {page ? (
+          {emptyTeamId ? (
+            <EmptyState hasPages={false} onCreate={() => void createPage(null, emptyTeamId)} />
+          ) : teamsListOpen && session ? (
+            <TeamListPanel
+              session={session}
+              teams={teams}
+              onChanged={() => {
+                void listTeams(session).then((list) => {
+                  if (sessionRef.current === session) setTeams(list);
+                });
+              }}
+              onManage={(team) => setDetailTeam(team)}
+            />
+          ) : page ? (
             <BlockEditor
               key={`${remote ? "remote" : "local"}:${page.id}:${editorEpoch}:${i18n.language}:${pageReadOnly ? "ro" : "rw"}`}
               doc={page.body}
@@ -1827,6 +1889,82 @@ function AppMain() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={dissolveTarget !== null} onOpenChange={(open) => !open && setDissolveTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("team.dissolve")}</DialogTitle>
+            <DialogDescription>{t("team.dissolveConfirm", { name: dissolveTarget?.name ?? "" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDissolveTarget(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                const target = dissolveTarget;
+                if (!session || !target) return;
+                setDissolveTarget(null);
+                void dissolveTeam(session, target.id)
+                  .then(async () => {
+                    if (activeTeamId === target.id) {
+                      writeActiveTeamId(null);
+                      setActiveTeamId(null);
+                    }
+                    if (emptyTeamId === target.id) setEmptyTeamId(null);
+                    if (detailTeam?.id === target.id) setDetailTeam(null);
+                    if (inviteTeam?.id === target.id) setInviteTeam(null);
+                    const list = await listTeams(session);
+                    if (sessionRef.current === session) setTeams(list);
+                    await refreshRemote(session, pageRef.current?.teamId === target.id ? null : pageRef.current?.id);
+                  })
+                  .catch((err: unknown) => setError(err instanceof Error ? err.message : t("team.failed")));
+              }}
+            >
+              {t("team.dissolve")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={leaveTarget !== null} onOpenChange={(open) => !open && setLeaveTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("team.leave")}</DialogTitle>
+            <DialogDescription>{t("team.leaveConfirm", { name: leaveTarget?.name ?? "" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLeaveTarget(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                const target = leaveTarget;
+                if (!session || !target) return;
+                setLeaveTarget(null);
+                void leaveTeam(session, target.id)
+                  .then(async () => {
+                    if (activeTeamId === target.id) {
+                      writeActiveTeamId(null);
+                      setActiveTeamId(null);
+                    }
+                    if (emptyTeamId === target.id) setEmptyTeamId(null);
+                    if (detailTeam?.id === target.id) setDetailTeam(null);
+                    if (inviteTeam?.id === target.id) setInviteTeam(null);
+                    const list = await listTeams(session);
+                    if (sessionRef.current === session) setTeams(list);
+                    await refreshRemote(session, pageRef.current?.teamId === target.id ? null : pageRef.current?.id);
+                  })
+                  .catch((err: unknown) => setError(err instanceof Error ? err.message : t("team.failed")));
+              }}
+            >
+              {t("team.leave")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={pendingDeleteId !== null} onOpenChange={(open) => !open && setPendingDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
@@ -1858,11 +1996,11 @@ function AppMain() {
         onCancel={closeImport}
         onConfirm={(mode) => void applyImport(mode)}
       />
-      {session && teamManageOpen && teams.find((team) => team.id === activeTeamId && canManageTeam(team.role)) ? (
+      {session && detailTeam ? (
         <TeamManageSidebar
           session={session}
-          team={teams.find((team) => team.id === activeTeamId)!}
-          onClose={() => setTeamManageOpen(false)}
+          team={detailTeam}
+          onClose={() => setDetailTeam(null)}
           onChanged={() => {
             void listTeams(session).then((list) => {
               if (sessionRef.current === session) setTeams(list);
@@ -1890,6 +2028,22 @@ function AppMain() {
           panel={teamPanel}
         />
       ) : null}
+      <Dialog open={inviteTeam !== null} onOpenChange={(open) => !open && setInviteTeam(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("team.inviteMembers")}</DialogTitle>
+            <DialogDescription>{t("team.inviteHint")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 font-mono text-sm tracking-[0.2em]">{inviteTeam?.code ?? "—"}</p>
+            {inviteTeam?.code ? (
+              <Button type="button" variant="outline" onClick={() => void copyText(inviteTeam.code ?? "")}>
+                {t("team.copyCode")}
+              </Button>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
       {session && sharePageId ? (
         <ShareDialog
           session={session}

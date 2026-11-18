@@ -141,6 +141,11 @@ export async function leaveTeam(session: RemoteSession, id: string): Promise<voi
   await request(session, "POST", `${WIKI_TEAMS}/${encodeURIComponent(id)}/leave`);
 }
 
+/** 拥有者解散团队。成员关系随之失效。 */
+export async function dissolveTeam(session: RemoteSession, id: string): Promise<void> {
+  await request(session, "POST", `${WIKI_TEAMS}/${encodeURIComponent(id)}/dissolve`);
+}
+
 export async function loadTeam(session: RemoteSession, id: string): Promise<{ team: TeamInfo; members: TeamMember[] }> {
   const data = asRecord(await request<unknown>(session, "GET", `${WIKI_TEAMS}/${encodeURIComponent(id)}`));
   const team = toTeam(data.team);
