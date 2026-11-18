@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Remind } from "@icon-park/react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   cachedTodoTasks,
   fineTodoStatus,
   loadNotifySnapshot,
+  refreshUnreadNoticeCount,
   markAllNoticesRead,
   markNoticeRead,
   noticeKind,
@@ -95,19 +96,26 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  openRef.current = open;
   const [tab, setTab] = useState<Tab>("unread");
   const [error, setError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<NotifySnapshot | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detail, setDetail] = useState<TodoDetailTarget | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (list?: boolean) => {
     if (!session) {
       setSnapshot(null);
       return;
     }
+    const showList = list ?? openRef.current;
     try {
-      setSnapshot(await loadNotifySnapshot(session));
+      if (showList) {
+        setSnapshot(await loadNotifySnapshot(session));
+      } else {
+        await refreshUnreadNoticeCount(session);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notify.loadFailed"));
@@ -119,7 +127,7 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
       setSnapshot(null);
       return;
     }
-    void loadNotifySnapshot(session).catch((err: unknown) => {
+    void refreshUnreadNoticeCount(session).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : t("notify.loadFailed"));
     });
     const stopLive = subscribeNotifySnapshot(() => {
@@ -137,7 +145,11 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
       if (event.kind === "todo" && event.action === "created") {
         setTab("todos");
       }
-      void loadNotifySnapshot(session);
+      if (openRef.current) {
+        void loadNotifySnapshot(session);
+      } else {
+        void refreshUnreadNoticeCount(session);
+      }
     });
     return () => {
       stopLive();
@@ -145,6 +157,13 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
       stopSocket();
     };
   }, [session, t]);
+
+  useEffect(() => {
+    if (!open || !session) return;
+    void loadNotifySnapshot(session).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : t("notify.loadFailed"));
+    });
+  }, [open, session, t]);
 
   if (!session) {
     return null;
@@ -182,6 +201,7 @@ export function NotifyBell({ session, className, onWriteTodo, onOpenPage }: Prop
       const pageId = pageIdFromNotice(notice);
       if (pageId && onOpenPage) {
         await onOpenPage(pageId);
+        openRef.current = false;
         setOpen(false);
       }
       await refresh();

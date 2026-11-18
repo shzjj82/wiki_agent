@@ -367,6 +367,22 @@ async function fetchNoticePage(session: RemoteSession, unread: boolean): Promise
   );
 }
 
+/** 铃铛收着时只刷新红点，不拉通知列表。 */
+export async function refreshUnreadNoticeCount(session: RemoteSession): Promise<number> {
+  const data = await request<{ count: number }>(session, "GET", "/wiki/notifications/unread-count");
+  const count = data.count ?? 0;
+  const prev = liveSnapshot;
+  liveSnapshot = {
+    openTodoCount: prev?.openTodoCount ?? 0,
+    unreadNoticeCount: count,
+    todos: prev?.todos ?? [],
+    notices: prev?.notices ?? [],
+    readNotices: prev?.readNotices ?? [],
+  };
+  emitNotifySnapshot();
+  return count;
+}
+
 export async function fetchNotifySnapshot(session: RemoteSession): Promise<NotifySnapshot> {
   const [todos, unreadNotice, unreadPage, readPage] = await Promise.all([
     request<Page<NotifyTodo>>(session, "GET", "/wiki/todos?status=pending,in_progress&page=1&pageSize=100"),

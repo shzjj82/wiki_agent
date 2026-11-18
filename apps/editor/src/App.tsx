@@ -1159,6 +1159,31 @@ function AppMain() {
     }
   }
 
+  const sidebarHandlers = useRef({
+    openPage,
+    createPage,
+    removePage,
+    movePage,
+    exportPage,
+    canWriteTeamId: (teamId: string) => canWriteTeam(teams.find((team) => team.id === teamId)?.role),
+  });
+  sidebarHandlers.current = {
+    openPage,
+    createPage,
+    removePage,
+    movePage,
+    exportPage,
+    canWriteTeamId: (teamId: string) => canWriteTeam(teams.find((team) => team.id === teamId)?.role),
+  };
+  const onSidebarOpen = useCallback((id: string) => void sidebarHandlers.current.openPage(id), []);
+  const onSidebarCreateChild = useCallback((parentId: string) => void sidebarHandlers.current.createPage(parentId), []);
+  const onSidebarCreateInSection = useCallback((teamId: string | null) => void sidebarHandlers.current.createPage(null, teamId), []);
+  const onSidebarDelete = useCallback((id: string) => sidebarHandlers.current.removePage(id), []);
+  const onSidebarReparent = useCallback((id: string, parentId: string | null) => void sidebarHandlers.current.movePage(id, parentId), []);
+  const onSidebarExport = useCallback((id: string, format: ExportFormat) => void sidebarHandlers.current.exportPage(id, format), []);
+  const onSidebarShare = useCallback((id: string) => setSharePageId(id), []);
+  const canCreateInTeam = useCallback((teamId: string) => sidebarHandlers.current.canWriteTeamId(teamId), []);
+
   if (authOpen && !session) {
     return (
       <div className="relative flex min-h-svh items-center justify-center bg-muted p-6">
@@ -1289,31 +1314,6 @@ function AppMain() {
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop);
   }
-
-  const sidebarHandlers = useRef({
-    openPage,
-    createPage,
-    removePage,
-    movePage,
-    exportPage,
-    canWriteTeamId: (teamId: string) => canWriteTeam(teams.find((team) => team.id === teamId)?.role),
-  });
-  sidebarHandlers.current = {
-    openPage,
-    createPage,
-    removePage,
-    movePage,
-    exportPage,
-    canWriteTeamId: (teamId: string) => canWriteTeam(teams.find((team) => team.id === teamId)?.role),
-  };
-  const onSidebarOpen = useCallback((id: string) => void sidebarHandlers.current.openPage(id), []);
-  const onSidebarCreateChild = useCallback((parentId: string) => void sidebarHandlers.current.createPage(parentId), []);
-  const onSidebarCreateInSection = useCallback((teamId: string | null) => void sidebarHandlers.current.createPage(null, teamId), []);
-  const onSidebarDelete = useCallback((id: string) => sidebarHandlers.current.removePage(id), []);
-  const onSidebarReparent = useCallback((id: string, parentId: string | null) => void sidebarHandlers.current.movePage(id, parentId), []);
-  const onSidebarExport = useCallback((id: string, format: ExportFormat) => void sidebarHandlers.current.exportPage(id, format), []);
-  const onSidebarShare = useCallback((id: string) => setSharePageId(id), []);
-  const canCreateInTeam = useCallback((teamId: string) => sidebarHandlers.current.canWriteTeamId(teamId), []);
 
   return (
     <div
