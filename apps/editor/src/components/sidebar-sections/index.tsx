@@ -408,7 +408,7 @@ function SidebarSectionsInner({
                 const list = byTeam.get(team.id) ?? [];
                 const open = isOpen(key);
                 const pages = hasPages(list);
-                const menu: MenuItem[] = [
+                const menu = [
                   onTeamDetails ? { id: "details", label: t("team.manageTeam"), onClick: () => onTeamDetails(team) } : null,
                   onInviteTeam ? { id: "invite", label: t("team.inviteMembers"), onClick: () => onInviteTeam(team) } : null,
                   canManageTeam(team.role)
@@ -419,7 +419,7 @@ function SidebarSectionsInner({
                       ? { id: "leave", label: t("team.leave"), danger: true, onClick: () => onLeaveTeam(team) }
                       : null,
                   canCreateInTeam(team.id) ? { id: "page", label: t("common.newPage"), separated: true, onClick: () => onCreateInSection(team.id) } : null,
-                ].filter((item): item is MenuItem => item !== null);
+                ].filter((item) => item !== null);
                 return (
                   <div key={team.id} className="flex flex-col gap-0.5 pl-6">
                     <SectionHeader
