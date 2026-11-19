@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Ellipsis, Plus, Redo2, Undo2, X } from "lucide-react";
 import EditorJS from "@editorjs/editorjs";
 import Delimiter from "@editorjs/delimiter";
 import Header from "@editorjs/header";
@@ -17,18 +16,18 @@ import { useIsMobile } from "@/lib/useMediaQuery";
 import { useVisualViewport } from "@/lib/useKeyboardInset";
 import { PageLinkTool, type PageLinkData } from "./tools/PageLinkTool";
 import { AttachmentTool } from "./tools/AttachmentTool";
-import { ImageBlockTool, imageBlockData } from "./tools/ImageBlockTool";
+import { ImageBlockTool } from "./tools/ImageBlockTool";
 import { TodoBlockTool, type TodoBlockDetailRequest } from "./tools/TodoBlockTool";
 import { VideoBlockTool } from "./tools/VideoBlockTool";
 import { CodeBlockTool } from "./tools/CodeBlockTool";
 import type { AttachmentData } from "@/store/fileStore";
-import { htmlToBlocks } from "@/lib/document/htmlToBlocks";
-import { isImageFile } from "@/lib/document/fileKinds";
 import { bindEditingGuards } from "./editingGuards";
 import { menuIcons } from "./menuIcons";
 import { bindToolbarAnchor, blockIconKey } from "./toolbarAnchor";
 import { revealText } from "./revealText";
 import { useDocHistory } from "./useDocHistory";
+import { bindPaste } from "./paste";
+import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
 import { cn } from "@/lib/utils";
 import "./blockEditor.css";
 
@@ -41,74 +40,6 @@ export type EditorHistoryApi = {
 };
 
 const inlineTools = ["link", "bold", "italic", "askAi"];
-
-/** 底栏样式按钮的 aria-label 只能取这几个键（写成联合类型，动态取词才不会绕过 i18n 的类型校验） */
-type BlockStyleLabel =
-  | "blockEditor.styleText"
-  | "blockEditor.styleH1"
-  | "blockEditor.styleH2"
-  | "blockEditor.styleH3"
-  | "blockEditor.styleBullet"
-  | "blockEditor.styleNumbered"
-  | "blockEditor.styleTodo"
-  | "blockEditor.styleQuote"
-  | "blockEditor.styleCode";
-
-/** 移动端底栏直接摆出来的块样式：点图标即切换，不再弹菜单。key 与 blockIconKey 的返回值一致 */
-const blockStyles: { key: string; icon: string; label: BlockStyleLabel; tool: string; data?: Record<string, unknown> }[] = [
-  { key: "T", icon: menuIcons.text, label: "blockEditor.styleText", tool: "paragraph" },
-  { key: "H1", icon: menuIcons.h1, label: "blockEditor.styleH1", tool: "header", data: { level: 1 } },
-  { key: "H2", icon: menuIcons.h2, label: "blockEditor.styleH2", tool: "header", data: { level: 2 } },
-  { key: "H3", icon: menuIcons.h3, label: "blockEditor.styleH3", tool: "header", data: { level: 3 } },
-  { key: "ul", icon: menuIcons.ul, label: "blockEditor.styleBullet", tool: "list", data: { style: "unordered" } },
-  { key: "ol", icon: menuIcons.ol, label: "blockEditor.styleNumbered", tool: "list", data: { style: "ordered" } },
-  { key: "todo", icon: menuIcons.todo, label: "blockEditor.styleTodo", tool: "todo" },
-  { key: "quote", icon: menuIcons.quote, label: "blockEditor.styleQuote", tool: "quote" },
-  { key: "code", icon: menuIcons.code, label: "blockEditor.styleCode", tool: "code" },
-];
-
-function imageFilesFromClipboard(data: DataTransfer): File[] {
-  const files = Array.from(data.files).filter(isImageFile);
-  if (files.length > 0) {
-    return files;
-  }
-  const fromItems: File[] = [];
-  for (const item of Array.from(data.items)) {
-    if (item.kind !== "file") {
-      continue;
-    }
-    const file = item.getAsFile();
-    if (file && isImageFile(file)) {
-      fromItems.push(file);
-    }
-  }
-  return fromItems;
-}
-
-async function insertPastedImages(
-  editor: EditorJS,
-  files: File[],
-  upload: (file: File) => Promise<AttachmentData>,
-  isAlive: () => boolean,
-) {
-  const current = editor.blocks.getCurrentBlockIndex();
-  const block = current >= 0 ? editor.blocks.getBlockByIndex(current) : undefined;
-  const replace = Boolean(block?.isEmpty) && block?.name !== "header" && block?.name !== "table";
-  let index = current < 0 ? editor.blocks.getBlocksCount() : replace ? current : current + 1;
-  let replaceNext = replace;
-  for (const file of files) {
-    if (!isAlive()) {
-      return;
-    }
-    const uploaded = await upload(file);
-    if (!isAlive()) {
-      return;
-    }
-    editor.blocks.insert("image", imageBlockData(uploaded), {}, index, false, replaceNext);
-    replaceNext = false;
-    index += 1;
-  }
-}
 
 /** page=文档页全功能；embed=嵌入详情等场景，不含子页面 / 待办 / AI */
 export type BlockEditorVariant = "page" | "embed";
@@ -407,55 +338,12 @@ export function BlockEditor({
     const unbindGuards = bindEditingGuards(holder, editor);
     const unbindToolbar = bindToolbarAnchor(holder);
 
-    const onPaste = (event: ClipboardEvent) => {
-      const data = event.clipboardData;
-      const target = event.target instanceof Element ? event.target : null;
-      if (!data || data.types.includes("application/x-editor-js")) {
-        return;
-      }
-      const images = imageFilesFromClipboard(data);
-      if (images.length > 0) {
-        if (readOnlyRef.current || target?.closest(".tc-table, input, textarea")) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        const upload = onUploadRef.current;
-        if (!upload) {
-          return;
-        }
-        void insertPastedImages(editor, images, upload, () => alive).catch((error: unknown) => {
-          onUploadErrorRef.current?.(error instanceof Error ? error.message : t("attachment.uploadFailed"));
-        });
-        return;
-      }
-      if (data.files.length > 0) {
-        return;
-      }
-      if (!target?.closest(".ce-block") || target.closest(".tc-table, .cdx-quote__caption, input, textarea")) {
-        return;
-      }
-      const html = data.getData("text/html");
-      if (!html) {
-        return;
-      }
-      const blocks = htmlToBlocks(html);
-      if (blocks.length === 0 || (blocks.length === 1 && blocks[0].type === "paragraph")) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      const current = editor.blocks.getCurrentBlockIndex();
-      const block = current >= 0 ? editor.blocks.getBlockByIndex(current) : undefined;
-      const replace = Boolean(block?.isEmpty) && block?.name !== "table";
-      const at = current < 0 ? editor.blocks.getBlocksCount() : replace ? current : current + 1;
-      editor.blocks.insertMany(blocks, at);
-      if (replace && block) {
-        editor.blocks.delete(editor.blocks.getBlockIndex(block.id));
-      }
-      editor.caret.setToBlock(at + blocks.length - 1, "end");
-    };
-    holder.addEventListener("paste", onPaste, true);
+    const unbindPaste = bindPaste(holder, editor, {
+      isAlive: () => alive,
+      isReadOnly: () => readOnlyRef.current,
+      getUpload: () => onUploadRef.current,
+      onUploadError: (error) => onUploadErrorRef.current?.(error instanceof Error ? error.message : t("attachment.uploadFailed")),
+    });
 
     let destroyed = false;
     const destroy = () => {
@@ -470,7 +358,7 @@ export function BlockEditor({
       alive = false;
       unbindGuards();
       unbindToolbar();
-      holder.removeEventListener("paste", onPaste, true);
+      unbindPaste();
       window.clearTimeout(toastTimerRef.current);
       window.clearTimeout(changeTimerRef.current);
       changeTimerRef.current = 0;
@@ -504,11 +392,6 @@ export function BlockEditor({
     const timer = window.setTimeout(() => revealText(holder, reveal.text), 60);
     return () => window.clearTimeout(timer);
   }, [reveal?.nonce, reveal?.text]);
-
-  /** 底部工具栏按钮：阻止默认行为抢焦点，保证编辑器光标不丢（pointerdown / mousedown 都兜住） */
-  function keepEditorFocus(event: { preventDefault: () => void }) {
-    event.preventDefault();
-  }
 
   /** 把光标放回当前块。setToBlock 会同步更新 currentBlock，块菜单才知道对谁生效 */
   function focusCurrentBlock(): boolean {
@@ -668,21 +551,13 @@ export function BlockEditor({
     if (!editor) {
       return;
     }
-    let index = 0;
+    let index: number;
     try {
       index = Math.max(0, editor.blocks.getCurrentBlockIndex());
     } catch {
       index = 0;
     }
     onAiRef.current?.(index);
-  }
-
-  /** 收起软键盘 */
-  function dismissKeyboard() {
-    const active = document.activeElement;
-    if (active instanceof HTMLElement) {
-      active.blur();
-    }
   }
 
   /* 光标在块之间移动时刷新底栏的样式高亮 */
@@ -700,18 +575,10 @@ export function BlockEditor({
       holder.removeEventListener("mouseup", refresh);
       holder.removeEventListener("focusin", refresh);
     };
-    // refreshBlockKind 只读 ref + setState，不需要进依赖
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
   /* 放在所有 useState 之后：压缩后如果提前引用会命中 TDZ（Cannot access before initialization） */
   const showBar = isMobile && ready && !readOnly && editing && Boolean(barSlot);
-  /** 代码块不提供正文样式快捷键：那些转换对代码没有意义 */
-  const showStyleShortcuts = blockKind !== "code";
-  const mobileStyles = embed ? blockStyles.filter((item) => item.key !== "todo") : blockStyles;
-  const barIconProps = { size: 20 };
-  const barButtonClass =
-    "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg text-foreground/70 transition-colors active:bg-muted active:text-foreground";
   /* 提示条贴着可视视口底部；键盘开着时让出底栏的高度 */
   const toastBottom = viewport.top + viewport.height - (keyboardOpen ? 56 : 16);
 
@@ -750,121 +617,38 @@ export function BlockEditor({
       />
       {removedToast && !readOnly
         ? createPortal(
-            <div
-              className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-3"
-              style={{ top: toastBottom, transform: "translateY(-100%)" }}
-            >
-              <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-foreground px-3.5 py-2 text-background shadow-lg">
-                <span className="text-sm">{t("app.blockDeleted", { count: removedToast.count })}</span>
-                <button
-                  type="button"
-                  className="text-sm font-medium underline underline-offset-2"
-                  onClick={() => {
-                    setRemovedToast(null);
-                    window.clearTimeout(toastTimerRef.current);
-                    handleUndo();
-                  }}
-                >
-                  {t("app.undo")}
-                </button>
-                <button
-                  type="button"
-                  aria-label={t("common.cancel")}
-                  className="text-background/60"
-                  onClick={() => {
-                    setRemovedToast(null);
-                    window.clearTimeout(toastTimerRef.current);
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>,
+            <BlockRemovedToast
+              count={removedToast.count}
+              top={toastBottom}
+              onUndo={() => {
+                setRemovedToast(null);
+                window.clearTimeout(toastTimerRef.current);
+                handleUndo();
+              }}
+              onClose={() => {
+                setRemovedToast(null);
+                window.clearTimeout(toastTimerRef.current);
+              }}
+            />,
             document.body,
           )
         : null}
       {showBar && barSlot
         ? createPortal(
-            <div
-              ref={barRef}
-              /* 不再是 fixed：占据父级布局流的一行，内容怎么滚它都不动 */
-              className="flex items-center gap-1 border-t border-border bg-background pt-1"
-              style={{
-                // 键盘弹起时去掉底部安全距离，贴住键盘上沿
-                paddingBottom: keyboardOpen ? "0.375rem" : "max(0.375rem, env(safe-area-inset-bottom))",
-                paddingLeft: "max(0.5rem, env(safe-area-inset-left))",
-                paddingRight: "max(0.5rem, env(safe-area-inset-right))",
-                // 只允许横向手势（样式条要滑）。竖向划动若交给浏览器，
-                // iOS 会去“拖动整页”（平移可视视口），外壳跟着 offsetTop 走就是整屏抖动
-                touchAction: "pan-x",
-              }}
-            >
-              {/* 撤销 / 重做：误删一个块按一下就能回来 */}
-              <button
-                type="button"
-                aria-label={t("app.undo")}
-                disabled={!history.canUndo}
-                className={cn(barButtonClass, !history.canUndo && "opacity-40")}
-                onPointerDown={keepEditorFocus}
-                onMouseDown={keepEditorFocus}
-                onClick={handleUndo}
-              >
-                <Undo2 {...barIconProps} />
-              </button>
-              <button
-                type="button"
-                aria-label={t("app.redo")}
-                disabled={!history.canRedo}
-                className={cn(barButtonClass, !history.canRedo && "opacity-40")}
-                onPointerDown={keepEditorFocus}
-                onMouseDown={keepEditorFocus}
-                onClick={handleRedo}
-              >
-                <Redo2 {...barIconProps} />
-              </button>
-              {/* pointerdown / mousedown 都阻止默认行为，避免点按钮时编辑器失焦、光标丢失 */}
-              <button type="button" aria-label={t("app.insertBlock")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openBlockMenu}>
-                <Plus {...barIconProps} />
-              </button>
-              {/* 字体/块样式直接铺在底栏上，点哪个就是哪种，不再弹菜单。代码块里不展示 */}
-              {showStyleShortcuts ? (
-                <div className="editor-style-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-                  {mobileStyles.map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      aria-label={t(item.label)}
-                      aria-pressed={blockKind === item.key}
-                      className={cn(
-                        "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        blockKind === item.key ? "bg-muted text-foreground" : "text-foreground/70 active:bg-muted",
-                      )}
-                      onPointerDown={keepEditorFocus}
-                      onMouseDown={keepEditorFocus}
-                      onClick={() => applyBlockStyle(item.tool, item.data)}
-                    >
-                      <span
-                        className="pointer-events-none flex h-[18px] w-[18px] items-center justify-center"
-                        dangerouslySetInnerHTML={{ __html: item.icon }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="min-w-0 flex-1" />
-              )}
-              {!embed ? (
-                <button type="button" aria-label={t("app.aiChatTitle")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openAi}>
-                  <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>
-                </button>
-              ) : null}
-              <button type="button" aria-label={t("app.blockActions")} className={barButtonClass} onPointerDown={keepEditorFocus} onMouseDown={keepEditorFocus} onClick={openBlockSettings}>
-                <Ellipsis {...barIconProps} />
-              </button>
-              <button type="button" aria-label={t("app.hideKeyboard")} className={barButtonClass} onClick={dismissKeyboard}>
-                <ChevronDown {...barIconProps} />
-              </button>
-            </div>,
+            <MobileBlockBar
+              barRef={barRef}
+              keyboardOpen={keyboardOpen}
+              embed={embed}
+              blockKind={blockKind}
+              canUndo={history.canUndo}
+              canRedo={history.canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onInsert={openBlockMenu}
+              onStyle={applyBlockStyle}
+              onAi={openAi}
+              onSettings={openBlockSettings}
+            />,
             barSlot,
           )
         : null}

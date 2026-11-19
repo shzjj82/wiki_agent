@@ -1,76 +1,37 @@
 import type { API, BlockAPI, BlockTool, BlockToolConstructorOptions } from "@editorjs/editorjs";
-import { appLocale, t } from "@/i18n";
+import { t } from "@/i18n";
 import {
   cachedListTasks,
   createTodo,
   deleteTodo,
   ensureTodoList,
-  fineTodoStatus,
   loadListTasks,
   attachSavedTasks,
   rememberTodoPage,
   subscribeListTasks,
   syncTodoStatus,
   updateTodoMergingData,
-  type NotifyTodo,
-  type UpsertTodoInput,
 } from "@/store/notifyStore";
 import { loadSession } from "@/store/remoteStore";
 import { lucideSvg } from "@/lib/lucideSvg";
 import { menuIcons } from "../menuIcons";
+import { DAY, formatPretty, isoFromDate, monthWeeks, packGantt, todayIso, utcDay, type GanttSegment } from "./todo/dates";
+import {
+  blankItem,
+  displayStatus,
+  isEnded,
+  normalize,
+  reopenStatus,
+  statusLabel,
+  todoToItem,
+  upsertPayload,
+  type Tab,
+  type TodoData,
+  type TodoBlockDetailRequest,
+  type TodoItem,
+} from "./todo/model";
 
-/** pending 未开始 · in_progress 进行中 · done 已完成 · cancelled 已终止 */
-export type TodoStatus = "pending" | "in_progress" | "done" | "cancelled";
-
-export type TodoItem = {
-  id: string;
-  text: string;
-  status: TodoStatus;
-  /** YYYY-MM-DD，空字符串表示未选 */
-  start: string;
-  end: string;
-  /** 详情正文：Editor.js JSON；非必填 */
-  content?: string;
-  /** 已同步到 notify 服务的远程待办 id */
-  remoteId?: string;
-};
-
-/** 块内「添加 / 编辑」走 React 详情对话框 */
-export type TodoBlockDetailRequest = {
-  creating: boolean;
-  pageId: string;
-  draft: { title: string; content?: string; status?: TodoStatus };
-  onSubmit: (data: { title: string; content: string }) => void | Promise<void>;
-  /** 详情里确认后才改状态：未开始 → 进行中，进行中 → 已完成 */
-  onStatus?: (status: "in_progress" | "done") => void | Promise<void>;
-};
-
-export type TodoData = {
-  /** 服务端待办列表 id，与 pageId 绑定。页面只留这个 id */
-  listId?: string;
-  /** 运行时从 store 填上。写回文档时不再带正文，只留任务 id */
-  items?: TodoItem[];
-  /** 属于这份列表的任务 id */
-  ids?: string[];
-  /** 整块待办共用，不跟某一条绑定 */
-  notify: boolean;
-};
-
-type Tab = "pending" | "in_progress" | "ended";
-
-function isEnded(status: TodoStatus): boolean {
-  return status === "done" || status === "cancelled";
-}
-
-function migrateStatus(raw: { status?: unknown; done?: unknown }): TodoStatus {
-  const status = String(raw.status ?? "").trim();
-  if (status === "pending" || status === "in_progress" || status === "done" || status === "cancelled") {
-    return status;
-  }
-  return raw.done ? "done" : "pending";
-}
-
-const DAY = 86_400_000;
+export type { TodoBlockDetailRequest, TodoData, TodoItem, TodoStatus } from "./todo/model";
 
 const LIST_ICON = lucideSvg("list-todo", 16);
 const GANTT_ICON = lucideSvg("chart-no-axes-gantt", 16);
@@ -94,192 +55,6 @@ function textWidth(input: HTMLInputElement): number {
   const width = probe.getBoundingClientRect().width;
   probe.remove();
   return width;
-}
-
-function uid(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function todayIso(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function blankItem(): TodoItem {
-  const today = todayIso();
-  return { id: uid(), text: "", status: "pending", start: today, end: today };
-}
-
-function asDate(value: unknown): string {
-  const text = String(value ?? "").trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
-}
-
-/** 取消完成 / 恢复终止时回到未开始，状态只由用户确认 */
-function reopenStatus(_item: Pick<TodoItem, "start">): TodoStatus {
-  return "pending";
-}
-
-/** 展示态就是用户确认过的状态。开始日只用于通知，不把任务改成进行中 */
-function displayStatus(item: TodoItem, _notifyOn?: boolean): TodoStatus {
-  return item.status;
-}
-
-function statusLabel(status: TodoStatus): string {
-  if (status === "in_progress") {
-    return t("todo.inProgress");
-  }
-  if (status === "done") {
-    return t("todo.done");
-  }
-  if (status === "cancelled") {
-    return t("todo.cancelled");
-  }
-  return t("todo.pending");
-}
-
-function normalizeItem(raw: unknown): TodoItem | null {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-  const item = raw as Partial<TodoItem> & { done?: boolean };
-  const remoteId = typeof item.remoteId === "string" && item.remoteId.trim() ? item.remoteId.trim() : undefined;
-  const content = typeof item.content === "string" && item.content.trim() ? item.content : undefined;
-  return {
-    id: typeof item.id === "string" && item.id ? item.id : uid(),
-    text: String(item.text ?? ""),
-    status: migrateStatus(item),
-    start: asDate(item.start),
-    end: asDate(item.end),
-    ...(content ? { content } : {}),
-    ...(remoteId ? { remoteId } : {}),
-  };
-}
-
-function dueAtFromItem(item: TodoItem): string | null {
-  if (!item.end) return null;
-  const date = new Date(`${item.end}T23:59:59.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function upsertPayload(item: TodoItem, pageId: string, listId: string, notify: boolean): UpsertTodoInput | null {
-  const title = item.text.trim().slice(0, 120);
-  if (!title || !pageId || !listId) return null;
-  return {
-    title,
-    ...(item.content?.trim() ? { content: item.content.trim() } : {}),
-    pageId,
-    category: "page",
-    source: "wiki",
-    status: item.status,
-    startsAt: item.start || null,
-    dueAt: dueAtFromItem(item),
-    data: {
-      kind: "task",
-      listId,
-      ...(item.remoteId ? {} : { localItemId: item.id }),
-      start: item.start || null,
-      end: item.end || null,
-      notify,
-    },
-  };
-}
-
-function dayOf(value: unknown): string {
-  const text = String(value ?? "").trim();
-  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
-}
-
-function todoToItem(todo: NotifyTodo): TodoItem {
-  const content = typeof todo.content === "string" && todo.content.trim() ? todo.content : undefined;
-  return {
-    id: todo.id,
-    remoteId: todo.id,
-    text: todo.title ?? "",
-    status: fineTodoStatus(todo),
-    start: dayOf(todo.data?.start) || dayOf(todo.startsAt),
-    end: dayOf(todo.data?.end) || dayOf(todo.dueAt),
-    ...(content ? { content } : {}),
-  };
-}
-
-function normalize(data: Partial<TodoData> | undefined): TodoData & { items: TodoItem[] } {
-  const rawItems = Array.isArray(data?.items) ? data.items : [];
-  const items = rawItems.map(normalizeItem).filter((item): item is TodoItem => item !== null);
-  const ids = Array.isArray(data?.ids) ? data.ids.filter((id): id is string => typeof id === "string" && Boolean(id.trim())) : [];
-  const legacyNotify = rawItems.some(
-    (raw) => Boolean(raw && typeof raw === "object" && (raw as { notify?: unknown }).notify),
-  );
-  const listId = typeof data?.listId === "string" && data.listId.trim() ? data.listId.trim() : undefined;
-  return {
-    items: items.length ? items : [blankItem()],
-    notify: Boolean(data?.notify) || legacyNotify,
-    ...(ids.length ? { ids } : {}),
-    ...(listId ? { listId } : {}),
-  };
-}
-
-function utcDay(iso: string): number {
-  const [year, month, day] = iso.split("-").map(Number);
-  return Date.UTC(year, month - 1, day);
-}
-
-function isoFromDate(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
-function monthWeeks(year: number, month: number): Date[][] {
-  const first = new Date(year, month - 1, 1);
-  const cursor = new Date(year, month - 1, 1 - first.getDay());
-  const last = new Date(year, month, 0);
-  const weeks: Date[][] = [];
-  while (cursor <= last) {
-    const week: Date[] = [];
-    for (let index = 0; index < 7; index += 1) {
-      week.push(new Date(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    weeks.push(week);
-  }
-  return weeks;
-}
-
-type GanttSegment = {
-  name: string;
-  status: TodoStatus;
-  overdue: boolean;
-  startCol: number;
-  endCol: number;
-  from: boolean;
-  to: boolean;
-};
-
-function packGantt(segments: GanttSegment[]): { segment: GanttSegment; lane: number }[] {
-  const sorted = [...segments].sort((a, b) => a.startCol - b.startCol || a.endCol - b.endCol);
-  const laneEnds: number[] = [];
-  return sorted.map((segment) => {
-    let lane = laneEnds.findIndex((end) => end < segment.startCol);
-    if (lane < 0) {
-      lane = laneEnds.length;
-      laneEnds.push(segment.endCol);
-    } else {
-      laneEnds[lane] = segment.endCol;
-    }
-    return { segment, lane };
-  });
-}
-
-function formatPretty(iso: string): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  const thisYear = Number(todayIso().slice(0, 4));
-  if (appLocale() === "zh") {
-    return year === thisYear ? `${month}月${day}日` : `${year}年${month}月${day}日`;
-  }
-  return year === thisYear ? `${month}/${day}` : `${year}/${month}/${day}`;
 }
 
 /** 待办块：未开始/进行中/已完成/已终止、起止日期、整块通知，以及列表/甘特图页签。 */

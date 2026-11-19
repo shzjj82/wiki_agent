@@ -13,18 +13,23 @@ import { isDesktopApp } from "@/lib/ai/skills";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createLocal, ensureLocalPages, type EditorPage, type PageNode } from "@/store/localStore";
-import { createRemote, type RemoteSession } from "@/store/remoteStore";
+import { createRemote } from "@/store/remoteStore";
 import { canWriteTeam } from "@/store/teamStore";
 import { pageTitle } from "@/i18n";
 import { documentFromMarkdown, titleFromMarkdown } from "@/lib/document/fromMarkdown";
 import { fileKind } from "@/lib/document/fileKinds";
 import { saveEditor } from "@/lib/document/insertBlocks";
 import { loadSearchDocs, withLiveDocument } from "@/lib/document/search";
-import { flushPendingAttachments, type AttachmentData } from "@/store/fileStore";
+import { flushPendingAttachments } from "@/store/fileStore";
 import { readAppLocation } from "@/lib/route";
 import { usePageCatalog } from "@/hooks/usePageCatalog";
 import { usePageActions } from "@/hooks/usePageActions";
 import { usePageCommands, useWorkspace } from "@/layouts/workspace/context";
+
+function importKind(file: File | undefined): "word" | "excel" | "video" {
+  const kind = file ? fileKind(file.name) : null;
+  return kind === "excel" || kind === "video" ? kind : "word";
+}
 
 /** `/app`、`/app/:pageId`、`/app/join/:code` 共用这一个视图，地址只决定打开哪篇文档。侧栏和团队弹窗在 WorkspaceLayout 里。 */
 export function EditorView() {
@@ -38,17 +43,12 @@ export function EditorView() {
     teams,
     teamsReady,
     activeTeamId,
-    setActiveTeamId,
-    hint,
     setHint,
-    error,
     setError,
     sidebarOpen,
     setSidebarOpen,
     setSelectedPageId,
     openLogin,
-    openTeamDetails,
-    reloadTeams,
     sync,
   } = useWorkspace();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,21 +56,10 @@ export function EditorView() {
       占据真实布局空间（在滚动区之后），因此永远不会跟着内容滚动 */
   const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
   const [page, setPage] = useState<EditorPage | null>(null);
-  const [editorEpoch, setEditorEpoch] = useState(0);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [teamsListOpen, setTeamsListOpen] = useState(false);
   const [emptyTeamId, setEmptyTeamId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [reveal, setReveal] = useState<{ text: string; nonce: number } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-  /** 正在导入的 Word / Excel；index 只有拖入时才有，弹窗里选「作为附件」时插到这里 */
-  const [pendingDrop, setPendingDrop] = useState<{ file: File; index: number | null } | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
-  const [importBusy, setImportBusy] = useState(false);
-  const [queuedDrop, setQueuedDrop] = useState<File[] | null>(null);
-  const [viewing, setViewing] = useState<{ data: AttachmentData; replace: (next: AttachmentData) => void } | null>(null);
   const [todoDetail, setTodoDetail] = useState<TodoDetailTarget | null>(null);
-  const [fileDeleteAsk, setFileDeleteAsk] = useState<{ name: string; resolve: (ok: boolean) => void } | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [wikiOpen, setWikiOpen] = useState(false);
   const [wikiFocus, setWikiFocus] = useState(0);
@@ -87,7 +76,6 @@ export function EditorView() {
   const editorRef = useRef<EditorJS | null>(null);
   const nodesRef = useRef<PageNode[]>([]);
   nodesRef.current = nodes;
-  const saveTimer = useRef(0);
   const pageRef = useRef<EditorPage | null>(null);
   /** 正文编辑只写 pageRef，避免 setPage；此标记防止渲染时用过期 page state 盖掉草稿 */
   const draftDirtyRef = useRef(false);
@@ -101,18 +89,6 @@ export function EditorView() {
   useEffect(() => setSelectedPageId(page?.id ?? null), [page?.id, setSelectedPageId]);
   useEffect(() => () => setSelectedPageId(null), [setSelectedPageId]);
 
-  const openPageRef = useRef<(id: string, history?: "push" | "replace" | "none") => Promise<void>>(async () => undefined);
-
-  useEffect(() => {
-    const onPop = () => {
-      const loc = readAppLocation();
-      if (loc.pageId && loc.pageId !== pageRef.current?.id) {
-        void openPageRef.current(loc.pageId, "none");
-      }
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
   const pageReadOnly = Boolean(
     teamsReady && page?.teamId && !canWriteTeam(teams.find((team) => team.id === page.teamId)?.role),
   );
@@ -162,9 +138,58 @@ export function EditorView() {
   }, []);
 
   const { refreshLocal, refreshRemote } = usePageCatalog({ pageRef, sessionRef, setNodes, setPage });
+  const {
+    openPageRef,
+    importState,
+    viewing,
+    setViewing,
+    fileDeleteAsk,
+    pendingDeleteId,
+    cancelRemove,
+    reveal,
+    editorEpoch,
+    openPage,
+    createPage,
+    createChildLink,
+    writeTodoPage,
+    readImport,
+    closeImport,
+    applyImport,
+    uploadFile,
+    confirmDeleteFile,
+    answerDeleteFile,
+    promoteViewing,
+    dropFiles,
+    onEdit,
+    switchLocale,
+    movePage,
+    removePage,
+    confirmRemove,
+    exportPage,
+    revealPage,
+  } = usePageActions({
+    page,
+    setPage,
+    pageRef,
+    draftDirtyRef,
+    editorRef,
+    editorReady,
+    readOnlyRef,
+    refreshLocal,
+    refreshRemote,
+    setEmptyTeamId,
+  });
 
-  /** 退出或换号后，还在路上的云端响应不能再写回界面 */
-  const stale = (nextSession: RemoteSession) => sessionRef.current !== nextSession;
+  useEffect(() => {
+    const onPop = () => {
+      const loc = readAppLocation();
+      if (loc.pageId && loc.pageId !== pageRef.current?.id) {
+        void openPageRef.current(loc.pageId, "none");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [openPageRef]);
 
   const openSpotlight = useCallback((opts?: { actionId?: string; insertIndex?: number; selection?: string }) => {
     const editor = editorRef.current;
@@ -192,7 +217,7 @@ export function EditorView() {
     setWorkOpen(false);
     setWikiOpen(true);
     setWikiFocus((count) => count + 1);
-  }, [session, openLogin]);
+  }, [session, openLogin, setViewing]);
 
   const openWork = useCallback(() => {
     if (!isDesktopApp()) {
@@ -208,7 +233,7 @@ export function EditorView() {
     setWikiOpen(false);
     setWorkOpen(true);
     setWorkFocus((count) => count + 1);
-  }, [session, openLogin]);
+  }, [session, openLogin, setViewing]);
 
   const loadAskPages = useCallback(async () => {
     const docs = await loadSearchDocs(session, nodes);
@@ -250,7 +275,6 @@ export function EditorView() {
   useEffect(() => {
     setPage(null);
     setNodes([]);
-    setTeamsListOpen(false);
     setEmptyTeamId(null);
     setWikiOpen(false);
     setWorkOpen(false);
@@ -289,67 +313,6 @@ export function EditorView() {
     return () => window.removeEventListener("online", onOnline);
   }, [session]);
 
-  const {
-    openPage,
-    createPage,
-    createChildLink,
-    writeTodoPage,
-    readImport,
-    closeImport,
-    applyImport,
-    uploadFile,
-    confirmDeleteFile,
-    answerDeleteFile,
-    promoteViewing,
-    dropFiles,
-    onEdit,
-    switchLocale,
-    movePage,
-    removePage,
-    confirmRemove,
-    exportPage,
-    revealPage,
-  } = usePageActions({
-    t,
-    session,
-    page,
-    nodes,
-    teams,
-    activeTeamId,
-    pendingDrop,
-    importBusy,
-    fileDeleteAsk,
-    viewing,
-    queuedDrop,
-    editorReady,
-    pendingDeleteId,
-    pageRef,
-    editorRef,
-    saveTimer,
-    draftDirtyRef,
-    readOnlyRef,
-    openPageRef,
-    stale,
-    refreshLocal,
-    refreshRemote,
-    setSidebarOpen,
-    setError,
-    setHint,
-    setReveal,
-    setPage,
-    setNodes,
-    setTeamsListOpen,
-    setEmptyTeamId,
-    setActiveTeamId,
-    setPendingDrop,
-    setImportOpen,
-    setImportBusy,
-    setEditorEpoch,
-    setFileDeleteAsk,
-    setQueuedDrop,
-    setPendingDeleteId,
-  });
-
   usePageCommands({
     openPage: (id) => openPage(id),
     createPage,
@@ -380,13 +343,8 @@ export function EditorView() {
         sidebarOpen={sidebarOpen}
         onOpenSidebar={() => setSidebarOpen(true)}
         remote={remote}
-        error={error}
-        hint={hint}
         importInputRef={importInputRef}
         onImportFile={(file) => void readImport(file)}
-        teamsListOpen={teamsListOpen}
-        onCloseTeams={() => setTeamsListOpen(false)}
-        session={session}
         syncPending={sync.pending}
         onOpenSync={sync.open}
         page={page}
@@ -411,9 +369,6 @@ export function EditorView() {
         mobileMenuOpen={mobileMenuOpen}
         onMobileMenu={setMobileMenuOpen}
         onDrop={(files, point) => void dropFiles(files, point)}
-        teams={teams}
-        onTeamsChanged={reloadTeams}
-        onManageTeam={openTeamDetails}
         nodes={nodes}
         editorEpoch={editorEpoch}
         language={i18n.language}
@@ -564,7 +519,7 @@ export function EditorView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={pendingDeleteId !== null} onOpenChange={(open) => !open && setPendingDeleteId(null)}>
+      <Dialog open={pendingDeleteId !== null} onOpenChange={(open) => !open && cancelRemove()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("app.deletePage")}</DialogTitle>
@@ -576,7 +531,7 @@ export function EditorView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPendingDeleteId(null)}>
+            <Button type="button" variant="outline" onClick={cancelRemove}>
               {t("common.cancel")}
             </Button>
             <Button type="button" className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void confirmRemove()}>
@@ -586,12 +541,12 @@ export function EditorView() {
         </DialogContent>
       </Dialog>
       <ImportDialog
-        open={importOpen}
-        busy={importBusy}
-        fileName={pendingDrop?.file.name ?? ""}
-        fileSize={pendingDrop?.file.size}
-        allowAttach={pendingDrop?.index != null}
-        kind={pendingDrop && fileKind(pendingDrop.file.name) === "excel" ? "excel" : pendingDrop && fileKind(pendingDrop.file.name) === "video" ? "video" : "word"}
+        open={importState.open}
+        busy={importState.busy}
+        fileName={importState.drop?.file.name ?? ""}
+        fileSize={importState.drop?.file.size}
+        allowAttach={importState.drop?.index != null}
+        kind={importKind(importState.drop?.file)}
         onCancel={closeImport}
         onConfirm={(mode) => void applyImport(mode)}
       />

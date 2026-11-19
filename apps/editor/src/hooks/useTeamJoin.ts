@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router";
 import type { RemoteSession } from "@/store/remoteStore";
 import { joinTeam, listTeams, previewTeam, writeActiveTeamId, type TeamInfo, type TeamPreview } from "@/store/teamStore";
 import { joinCodeFromPath, writeAppLocation } from "@/lib/route";
@@ -38,51 +39,41 @@ export function useTeamJoin({
   const [joinBusy, setJoinBusy] = useState(false);
   const needLoginRef = useRef(onNeedLogin);
   needLoginRef.current = onNeedLogin;
+  const code = joinCodeFromPath(useLocation().pathname);
 
   useEffect(() => {
-    let alive = true;
-    let requested = "";
-    function sync() {
-      const code = joinCodeFromPath();
-      if (!code) {
-        requested = "";
-        setJoinPrompt(null);
-        return;
-      }
-      if (!session) {
-        setJoinPrompt(null);
-        needLoginRef.current();
-        return;
-      }
-      if (requested === code) return;
-      requested = code;
-      setJoinPrompt({ code, loading: true, error: "", preview: null });
-      void previewTeam(session, code)
-        .then((preview) => {
-          if (!alive) return;
-          setJoinPrompt({ code, loading: false, error: "", preview });
-        })
-        .catch((err: unknown) => {
-          if (!alive) return;
-          setJoinPrompt({
-            code,
-            loading: false,
-            error: err instanceof Error ? err.message : t("team.loadFailed"),
-            preview: null,
-          });
-        });
+    if (!code) {
+      setJoinPrompt(null);
+      return;
     }
-    sync();
-    window.addEventListener("popstate", sync);
+    if (!session) {
+      setJoinPrompt(null);
+      needLoginRef.current();
+      return;
+    }
+    let alive = true;
+    setJoinPrompt({ code, loading: true, error: "", preview: null });
+    void previewTeam(session, code)
+      .then((preview) => {
+        if (!alive) return;
+        setJoinPrompt({ code, loading: false, error: "", preview });
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setJoinPrompt({
+          code,
+          loading: false,
+          error: err instanceof Error ? err.message : t("team.loadFailed"),
+          preview: null,
+        });
+      });
     return () => {
       alive = false;
-      window.removeEventListener("popstate", sync);
     };
-  }, [session, t]);
+  }, [code, session, t]);
 
   function leaveJoinUrl() {
     writeAppLocation(pageIdRef.current, "replace");
-    window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
   function cancelJoin() {

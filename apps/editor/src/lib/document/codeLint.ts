@@ -1,6 +1,12 @@
-import hljs from "highlight.js/lib/core";
+import type { HLJSApi } from "highlight.js";
 import { t } from "@/i18n";
-import "./highlight";
+
+/** highlight.js 按需加载，由 `./highlight` 加载完后交给这里；之前其余语言的文法检查一律放行。 */
+let grammar: HLJSApi | null = null;
+
+export function setGrammarEngine(engine: HLJSApi): void {
+  grammar = engine;
+}
 
 /** 代码块语言。id 与 highlight.js 已注册的名称一致。 */
 export const CODE_LANGUAGES: { id: string; label: string }[] = [
@@ -284,7 +290,7 @@ function lintCssSource(source: string): CodeLint {
       }
       return fail(t("code.css"), startLine);
     }
-    if ((brace === 0 || paren === 0) && !/[\s\w\-.\#\:\,\[\]\(\)\*\>\+\~\%\"\'\@\/\\=&;]/.test(ch)) {
+    if ((brace === 0 || paren === 0) && !/[\s\w\-.#:,[\]()*>+~%"'@/\\=&;]/.test(ch)) {
       return fail(t("code.illegal", { token: ch }), line);
     }
     index += 1;
@@ -347,7 +353,8 @@ function skipCssValue(
 }
 
 function lintGrammar(source: string, language: string): CodeLint {
-  if (!hljs.getLanguage(language)) {
+  const hljs = grammar;
+  if (!hljs || !hljs.getLanguage(language)) {
     return { ok: true };
   }
   try {
@@ -357,11 +364,11 @@ function lintGrammar(source: string, language: string): CodeLint {
     const raw = err instanceof Error ? err.message : "";
     const token = /Illegal lexeme "([\s\S]*?)"/.exec(raw)?.[1] ?? "";
     const detail = token ? t("code.illegal", { token }) : t("code.grammar");
-    return { ok: false, line: firstIllegalLine(source, language), detail };
+    return { ok: false, line: firstIllegalLine(hljs, source, language), detail };
   }
 }
 
-function throwsIllegal(source: string, language: string): boolean {
+function throwsIllegal(hljs: HLJSApi, source: string, language: string): boolean {
   try {
     hljs.highlight(source, { language, ignoreIllegals: false });
     return false;
@@ -370,14 +377,14 @@ function throwsIllegal(source: string, language: string): boolean {
   }
 }
 
-function firstIllegalLine(source: string, language: string): number | undefined {
+function firstIllegalLine(hljs: HLJSApi, source: string, language: string): number | undefined {
   const lines = source.split("\n");
   let low = 1;
   let high = lines.length;
   let found: number | undefined;
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
-    if (throwsIllegal(lines.slice(0, mid).join("\n"), language)) {
+    if (throwsIllegal(hljs, lines.slice(0, mid).join("\n"), language)) {
       found = mid;
       high = mid - 1;
     } else {

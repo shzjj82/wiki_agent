@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import {
   buildSyncPlan,
@@ -113,13 +113,14 @@ export function useLocalSync({
   }
 
   const items = plan ? syncItems(plan) : [];
+  const openSummary = useCallback(() => setStep("summary"), []);
 
   return {
     settings,
     updateSettings,
     /** 顶栏「同步本地页面」按钮上的数字；弹窗开着或没开同步时为 0 */
     pending: session && settings.enabled && plan && !step ? syncPlanSize(plan) : 0,
-    openSummary: () => setStep("summary"),
+    openSummary,
     summaryProps: {
       open: step === "summary" && plan !== null,
       username: session?.username ?? "",

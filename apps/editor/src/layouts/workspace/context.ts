@@ -27,21 +27,16 @@ export type WorkspaceContextValue = {
   nodes: PageNode[];
   setNodes: Dispatch<SetStateAction<PageNode[]>>;
   teams: TeamInfo[];
-  setTeams: Dispatch<SetStateAction<TeamInfo[]>>;
   teamsReady: boolean;
   activeTeamId: string | null;
   setActiveTeamId: Dispatch<SetStateAction<string | null>>;
-  hint: string;
   setHint: Dispatch<SetStateAction<string>>;
-  error: string;
   setError: Dispatch<SetStateAction<string>>;
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
   /** 侧栏高亮哪一页，由子页面告诉外壳。 */
   setSelectedPageId: (id: string | null) => void;
   openLogin: (replace?: boolean) => void;
-  openTeamDetails: (team: TeamInfo) => void;
-  reloadTeams: () => void;
   sync: {
     pending: number;
     open: () => void;
@@ -49,7 +44,14 @@ export type WorkspaceContextValue = {
   commandsRef: MutableRefObject<PageCommands | null>;
 };
 
+/** 保存提示和报错变得很勤，单独一个 context，只有展示它们的组件跟着重渲染。 */
+export type WorkspaceStatus = {
+  hint: string;
+  error: string;
+};
+
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+export const WorkspaceStatusContext = createContext<WorkspaceStatus>({ hint: "", error: "" });
 
 export function useWorkspace(): WorkspaceContextValue {
   const value = useContext(WorkspaceContext);
@@ -57,6 +59,10 @@ export function useWorkspace(): WorkspaceContextValue {
     throw new Error("useWorkspace 只能在 WorkspaceLayout 里用");
   }
   return value;
+}
+
+export function useWorkspaceStatus(): WorkspaceStatus {
+  return useContext(WorkspaceStatusContext);
 }
 
 /** 子页面接管侧栏里的页面操作；每次渲染都换成最新的函数，卸载时交还给外壳。 */

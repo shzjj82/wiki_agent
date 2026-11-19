@@ -218,7 +218,7 @@ export async function aiChat(
     if (err instanceof DOMException && err.name === "AbortError") {
       throw err;
     }
-    throw new Error("GATEWAY_UNAVAILABLE");
+    throw new Error("GATEWAY_UNAVAILABLE", { cause: err });
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -237,7 +237,7 @@ export async function aiChat(
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    let json: Envelope<unknown> | null = null;
+    let json: Envelope<unknown> | null;
     try {
       json = text ? (JSON.parse(text) as Envelope<unknown>) : null;
     } catch {
@@ -321,7 +321,7 @@ async function agentsJson<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throwFromEnvelope(response.status, null);
   }
-  let json: Envelope<T> | null = null;
+  let json: Envelope<T> | null;
   try {
     json = JSON.parse(text) as Envelope<T>;
   } catch {

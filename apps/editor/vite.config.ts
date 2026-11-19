@@ -46,6 +46,13 @@ export default defineConfig(({ mode }) => {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: vendorChunk,
+        },
+      },
+    },
     envDir: repoRoot,
     envPrefix: ["VITE_", "TAURI_"],
     define: {
@@ -68,6 +75,29 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+
+/**
+ * 首屏一定会用到、又很少升级的第三方库单独成块，发版后浏览器仍能用缓存。
+ * 只按需加载的库（pdfmake、xlsx、docx 等）不要写进来，否则会被拉进首屏。
+ */
+const VENDOR_CHUNKS: Array<[name: string, packages: string[]]> = [
+  ["react", ["react", "react-dom", "scheduler", "react-router"]],
+  ["editorjs", ["@editorjs", "editorjs-drag-drop"]],
+  ["radix", ["radix-ui", "@radix-ui", "@floating-ui"]],
+  ["i18n", ["i18next", "react-i18next"]],
+];
+
+function vendorChunk(id: string): string | undefined {
+  const match = id.match(/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?((?:@[^/]+\/)?[^/]+)/);
+  if (!match) return undefined;
+  const pkg = match[1];
+  for (const [name, packages] of VENDOR_CHUNKS) {
+    if (packages.some((item) => pkg === item || pkg.startsWith(`${item}/`))) {
+      return `vendor-${name}`;
+    }
+  }
+  return undefined;
+}
 
 function workBridgePlugin(): Plugin {
   return {

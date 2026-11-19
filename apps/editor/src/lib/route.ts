@@ -47,14 +47,24 @@ export function appPagePath(pageId: string | null): string {
   return id ? `/app/${encodeURIComponent(id)}` : "/app";
 }
 
-/**
- * 把当前文档写进地址，刷新后仍打开这一页。
- * 直接写 history 而不走路由：切文档仍是同一个编辑器视图，后续逻辑要同步读到新地址。
- */
+type AppNavigator = (to: string, replace: boolean) => void;
+
+let appNavigator: AppNavigator | null = null;
+
+/** 路由创建后登记导航函数，地址变化要经过路由，`useLocation` 才能读到。 */
+export function bindAppNavigator(navigate: AppNavigator | null): void {
+  appNavigator = navigate;
+}
+
+/** 把当前文档写进地址，刷新后仍打开这一页。 */
 export function writeAppLocation(pageId: string | null, mode: "push" | "replace" = "replace"): void {
   const next = appPagePath(pageId);
   const current = `${window.location.pathname.replace(/\/+$/, "") || "/"}${window.location.search}`;
   if (current === next) {
+    return;
+  }
+  if (appNavigator) {
+    appNavigator(next, mode === "replace");
     return;
   }
   const update = mode === "push" ? window.history.pushState : window.history.replaceState;

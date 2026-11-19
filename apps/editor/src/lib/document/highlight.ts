@@ -1,4 +1,5 @@
 import hljs from "highlight.js/lib/core";
+import { setGrammarEngine } from "./codeLint";
 import bash from "highlight.js/lib/languages/bash";
 import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
@@ -59,6 +60,8 @@ hljs.registerLanguage("py", python);
 hljs.registerLanguage("sh", bash);
 hljs.registerLanguage("shell", bash);
 hljs.registerLanguage("yml", yaml);
+
+setGrammarEngine(hljs);
 
 /** 返回已转义的 HTML */
 export function highlightCode(source: string, language?: string): string {

@@ -1,16 +1,17 @@
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type EditorJS from "@editorjs/editorjs";
-import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import type { PageLinkData } from "@/components/block-editor/tools/PageLinkTool";
 import { imageBlockData } from "@/components/block-editor/tools/ImageBlockTool";
 import { setAppLocale, type AppLocale } from "@/i18n";
-import { exportDocument, type ExportFormat } from "@/lib/document/export";
+import type { ExportFormat } from "@/lib/document/export";
 import { fileKind, isImageFile } from "@/lib/document/fileKinds";
 import { importSpreadsheet, importVideo, importWord, mergeImported, readInsertable } from "@/lib/document/import";
 import { insertEditorBlocksAt } from "@/lib/document/insertBlocks";
 import type { ImportChoice } from "@/components/import-dialog";
 import { writeAppLocation } from "@/lib/route";
+import { useWorkspace } from "@/layouts/workspace/context";
 import {
   createLocal,
   listLocal,
@@ -22,11 +23,10 @@ import {
   titleFromBody,
   withLivePageLinks,
   type EditorPage,
-  type PageNode,
 } from "@/store/localStore";
 import { bindTodoPage, pageIdFromTodo, rememberTodoPage, todoNeedsPageBind, type NotifyTodo } from "@/store/notifyStore";
 import { createRemote, listRemote, loadRemote, removeRemote, reparentRemote, saveRemote, type RemoteSession } from "@/store/remoteStore";
-import { canWriteTeam, writeActiveTeamId, type TeamInfo } from "@/store/teamStore";
+import { canWriteTeam, writeActiveTeamId } from "@/store/teamStore";
 import { promoteAttachment, promoteDocument, saveAttachment, type AttachmentData } from "@/store/fileStore";
 
 type HistoryMode = "push" | "replace" | "none";
@@ -34,89 +34,53 @@ type PendingDrop = { file: File; index: number | null };
 type ViewingFile = { data: AttachmentData; replace: (next: AttachmentData) => void };
 type FileDeleteAsk = { name: string; resolve: (ok: boolean) => void };
 
-/** 打开、保存、导入和拖放都围着同一篇文档转，收在这里，外壳只负责摆界面。 */
+/**
+ * 打开、保存、导入和拖放都围着同一篇文档转，收在这里，外壳只负责摆界面。
+ * 导入、删除确认、附件预览这些只跟当前文档有关的状态也放在这里；
+ * 登录、页面树、团队和提示条从 WorkspaceLayout 取。
+ */
 export function usePageActions({
-  t,
-  session,
   page,
-  nodes,
-  teams,
-  activeTeamId,
-  pendingDrop,
-  importBusy,
-  fileDeleteAsk,
-  viewing,
-  queuedDrop,
-  editorReady,
-  pendingDeleteId,
+  setPage,
   pageRef,
-  editorRef,
-  saveTimer,
   draftDirtyRef,
+  editorRef,
+  editorReady,
   readOnlyRef,
-  openPageRef,
-  stale,
   refreshLocal,
   refreshRemote,
-  setSidebarOpen,
-  setError,
-  setHint,
-  setReveal,
-  setPage,
-  setNodes,
-  setTeamsListOpen,
   setEmptyTeamId,
-  setActiveTeamId,
-  setPendingDrop,
-  setImportOpen,
-  setImportBusy,
-  setEditorEpoch,
-  setFileDeleteAsk,
-  setQueuedDrop,
-  setPendingDeleteId,
 }: {
-  t: TFunction;
-  session: RemoteSession | null;
   page: EditorPage | null;
-  nodes: PageNode[];
-  teams: TeamInfo[];
-  activeTeamId: string | null;
-  pendingDrop: PendingDrop | null;
-  importBusy: boolean;
-  fileDeleteAsk: FileDeleteAsk | null;
-  viewing: ViewingFile | null;
-  queuedDrop: File[] | null;
-  editorReady: boolean;
-  pendingDeleteId: string | null;
+  setPage: Dispatch<SetStateAction<EditorPage | null>>;
   pageRef: MutableRefObject<EditorPage | null>;
-  editorRef: MutableRefObject<EditorJS | null>;
-  saveTimer: MutableRefObject<number>;
   draftDirtyRef: MutableRefObject<boolean>;
+  editorRef: MutableRefObject<EditorJS | null>;
+  editorReady: boolean;
   readOnlyRef: MutableRefObject<boolean>;
-  openPageRef: MutableRefObject<(id: string, history?: HistoryMode) => Promise<void>>;
-  stale: (nextSession: RemoteSession) => boolean;
   refreshLocal: (selectId?: string | null, history?: "push" | "replace") => void;
   refreshRemote: (nextSession: RemoteSession, selectId?: string | null, history?: "push" | "replace") => Promise<void>;
-  setSidebarOpen: Dispatch<SetStateAction<boolean>>;
-  setError: Dispatch<SetStateAction<string>>;
-  setHint: Dispatch<SetStateAction<string>>;
-  setReveal: Dispatch<SetStateAction<{ text: string; nonce: number } | null>>;
-  setPage: Dispatch<SetStateAction<EditorPage | null>>;
-  setNodes: Dispatch<SetStateAction<PageNode[]>>;
-  setTeamsListOpen: Dispatch<SetStateAction<boolean>>;
   setEmptyTeamId: Dispatch<SetStateAction<string | null>>;
-  setActiveTeamId: Dispatch<SetStateAction<string | null>>;
-  setPendingDrop: Dispatch<SetStateAction<PendingDrop | null>>;
-  setImportOpen: Dispatch<SetStateAction<boolean>>;
-  setImportBusy: Dispatch<SetStateAction<boolean>>;
-  setEditorEpoch: Dispatch<SetStateAction<number>>;
-  setFileDeleteAsk: Dispatch<SetStateAction<FileDeleteAsk | null>>;
-  setQueuedDrop: Dispatch<SetStateAction<File[] | null>>;
-  setPendingDeleteId: Dispatch<SetStateAction<string | null>>;
 }) {
+  const { t } = useTranslation();
+  const { session, sessionRef, nodes, setNodes, teams, activeTeamId, setActiveTeamId, setSidebarOpen, setError, setHint } = useWorkspace();
+  const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [queuedDrop, setQueuedDrop] = useState<File[] | null>(null);
+  const [viewing, setViewing] = useState<ViewingFile | null>(null);
+  const [fileDeleteAsk, setFileDeleteAsk] = useState<FileDeleteAsk | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<{ text: string; nonce: number } | null>(null);
+  const [editorEpoch, setEditorEpoch] = useState(0);
+  const saveTimer = useRef(0);
+  const openPageRef = useRef<(id: string, history?: HistoryMode) => Promise<void>>(async () => undefined);
+
+  /** 退出或换号后，还在路上的云端响应不能再写回界面 */
+  const stale = (nextSession: RemoteSession) => sessionRef.current !== nextSession;
+
   /** 空白团队页盖在当前文档上。等新页面进状态后再揭开，避免先闪出上一页再变成空白页。 */
   function revealDocument() {
-    setTeamsListOpen(false);
     setEmptyTeamId(null);
   }
 
@@ -519,6 +483,7 @@ export function usePageActions({
       if (!body) {
         throw new Error(t("app.pageNotFound"));
       }
+      const { exportDocument } = await import("@/lib/document/export");
       await exportDocument(format, titleFromBody(body), body);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("app.exportFailed"));
@@ -627,6 +592,15 @@ export function usePageActions({
   }
 
   return {
+    openPageRef,
+    importState: { open: importOpen, busy: importBusy, drop: pendingDrop },
+    viewing,
+    setViewing,
+    fileDeleteAsk,
+    pendingDeleteId,
+    cancelRemove: () => setPendingDeleteId(null),
+    reveal,
+    editorEpoch,
     openPage,
     createPage,
     createChildLink,

@@ -5,6 +5,7 @@ import { loadAttachment, type AttachmentData } from "@/store/fileStore";
 import { loadSession } from "@/store/remoteStore";
 import { lucideSvg } from "@/lib/lucideSvg";
 import { menuIcons } from "../menuIcons";
+import { columnWidth, downloadImage, openImagePreview, pickFile, scrollParent } from "./image/dom";
 
 export type ImageBlockData = {
   file?: { url?: string };
@@ -182,20 +183,6 @@ export class ImageBlockTool implements BlockTool {
     }
   }
 
-  /** 正文栏宽度。图片块本身是收缩的，不能拿它的宽度当百分比基准 */
-  private columnWidth(): number {
-    const redactor = this.wrapper.closest(".codex-editor__redactor");
-    if (redactor instanceof HTMLElement) {
-      const style = getComputedStyle(redactor);
-      const pad = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
-      const width = redactor.clientWidth - pad;
-      if (width > 0) {
-        return width;
-      }
-    }
-    return this.wrapper.clientWidth;
-  }
-
   private applyStoredWidth() {
     if (this.resizeDrag) {
       return;
@@ -205,7 +192,7 @@ export class ImageBlockTool implements BlockTool {
     if (!(frame instanceof HTMLElement) || !width) {
       return;
     }
-    const column = this.columnWidth();
+    const column = columnWidth(this.wrapper);
     if (column <= 0) {
       return;
     }
@@ -454,7 +441,7 @@ export class ImageBlockTool implements BlockTool {
       return;
     }
     const rect = frame.getBoundingClientRect();
-    const scroller = this.scrollParent();
+    const scroller = scrollParent(this.wrapper);
     const bounds = scroller?.getBoundingClientRect();
     const topLimit = Math.max(0, bounds?.top ?? 0);
     const bottomLimit = Math.min(window.innerHeight, bounds?.bottom ?? window.innerHeight);
@@ -466,21 +453,9 @@ export class ImageBlockTool implements BlockTool {
     this.wrapper.classList.toggle("is-bar-above", spaceBelow < needed && spaceAbove > spaceBelow);
   };
 
-  private scrollParent(): HTMLElement | null {
-    let node = this.wrapper.parentElement;
-    while (node && node !== document.body) {
-      const overflow = getComputedStyle(node).overflowY;
-      if (overflow === "auto" || overflow === "scroll") {
-        return node;
-      }
-      node = node.parentElement;
-    }
-    return null;
-  }
-
   private onBarEnter = () => {
     this.placeBar();
-    this.scrollParent()?.addEventListener("scroll", this.placeBar);
+    scrollParent(this.wrapper)?.addEventListener("scroll", this.placeBar);
     window.addEventListener("scroll", this.placeBar, true);
     window.addEventListener("resize", this.placeBar);
   };
@@ -489,13 +464,13 @@ export class ImageBlockTool implements BlockTool {
     if (this.wrapper.matches(":hover") || this.wrapper.classList.contains("is-align-open")) {
       return;
     }
-    this.scrollParent()?.removeEventListener("scroll", this.placeBar);
+    scrollParent(this.wrapper)?.removeEventListener("scroll", this.placeBar);
     window.removeEventListener("scroll", this.placeBar, true);
     window.removeEventListener("resize", this.placeBar);
   };
 
   private stopBarWatch() {
-    this.scrollParent()?.removeEventListener("scroll", this.placeBar);
+    scrollParent(this.wrapper)?.removeEventListener("scroll", this.placeBar);
     window.removeEventListener("scroll", this.placeBar, true);
     window.removeEventListener("resize", this.placeBar);
   }
@@ -546,55 +521,15 @@ export class ImageBlockTool implements BlockTool {
 
   private openPreview() {
     const src = this.imageSource();
-    if (!src) {
-      return;
+    if (src) {
+      openImagePreview(src, this.data.caption || this.data.name || "");
     }
-    const overlay = document.createElement("div");
-    overlay.className = "cdx-image-preview";
-    const image = document.createElement("img");
-    image.src = src;
-    image.alt = this.data.caption || this.data.name || "";
-    image.addEventListener("click", (event) => event.stopPropagation());
-    overlay.append(image);
-    const close = () => {
-      overlay.remove();
-      document.removeEventListener("keydown", onKey);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        close();
-      }
-    };
-    overlay.addEventListener("click", close);
-    document.addEventListener("keydown", onKey);
-    document.body.append(overlay);
   }
 
   private async downloadImage() {
     const src = this.imageSource();
-    if (!src) {
-      return;
-    }
-    const name = this.data.name || "image";
-    try {
-      const response = await fetch(src);
-      if (!response.ok) {
-        throw new Error("download");
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = name;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      const link = document.createElement("a");
-      link.href = this.publicUrl() || src;
-      link.download = name;
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.click();
+    if (src) {
+      await downloadImage(src, this.data.name || "image", this.publicUrl());
     }
   }
 
@@ -609,7 +544,7 @@ export class ImageBlockTool implements BlockTool {
     event.preventDefault();
     event.stopPropagation();
     this.select();
-    const column = this.columnWidth() || frame.getBoundingClientRect().width;
+    const column = columnWidth(this.wrapper) || frame.getBoundingClientRect().width;
     this.resizeDrag = {
       pointerId: event.pointerId,
       corner,
@@ -704,47 +639,15 @@ export class ImageBlockTool implements BlockTool {
     if (!this.config.upload || this.readOnly || this.uploading) {
       return;
     }
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = IMAGE_ACCEPT;
-    input.hidden = true;
-    document.body.append(input);
-    let settled = false;
-    let dialogOpened = false;
-    const finish = () => {
-      input.remove();
-      window.removeEventListener("blur", onBlur);
-      window.removeEventListener("focus", onFocus);
-    };
-    const onBlur = () => {
-      dialogOpened = true;
-    };
-    const onFocus = () => {
-      window.setTimeout(() => {
-        if (!settled && dialogOpened && !isImageData(this.data) && !this.uploading) {
-          finish();
+    pickFile(
+      IMAGE_ACCEPT,
+      (file) => void this.upload(file),
+      () => {
+        if (!isImageData(this.data) && !this.uploading) {
           this.removeBlock();
         }
-      }, 200);
-    };
-    input.addEventListener("change", () => {
-      settled = true;
-      const file = input.files?.[0];
-      finish();
-      if (file) {
-        void this.upload(file);
-      } else if (!isImageData(this.data)) {
-        this.removeBlock();
-      }
-    });
-    window.addEventListener("blur", onBlur);
-    window.addEventListener("focus", onFocus);
-    input.click();
-    if (!dialogOpened) {
-      window.removeEventListener("blur", onBlur);
-      window.removeEventListener("focus", onFocus);
-      input.remove();
-    }
+      },
+    );
   }
 
   private async upload(file: File) {

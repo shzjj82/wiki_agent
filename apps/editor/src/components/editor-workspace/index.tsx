@@ -1,6 +1,6 @@
 import type { MutableRefObject, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Cloud, Download, Ellipsis, FileOutput, HardDrive, Menu, Redo2, Trash2, Undo2, X } from "lucide-react";
+import { Cloud, Download, Ellipsis, FileOutput, HardDrive, Menu, Redo2, Trash2, Undo2 } from "lucide-react";
 import type { EditorJsDocument } from "@myblog/shared";
 import type EditorJS from "@editorjs/editorjs";
 import { BlockEditor, type EditorHistoryApi } from "@/components/block-editor";
@@ -10,17 +10,15 @@ import { EmptyState } from "@/components/empty-state";
 import { FileDropZone } from "@/components/file-drop";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { LanguageSwitch } from "@/components/language-switch";
-import { TeamListPanel } from "@/components/team-list-panel";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useWorkspaceStatus } from "@/layouts/workspace/context";
 import { WORD_ACCEPT } from "@/lib/document/import";
 import type { ExportFormat } from "@/lib/document/export";
 import type { AppLocale } from "@/i18n";
 import type { AttachmentData } from "@/store/fileStore";
 import type { EditorPage, PageNode } from "@/store/localStore";
-import type { RemoteSession } from "@/store/remoteStore";
-import type { TeamInfo } from "@/store/teamStore";
 
 const iconProps = { size: 16 };
 
@@ -58,13 +56,8 @@ type Props = {
   sidebarOpen: boolean;
   onOpenSidebar: () => void;
   remote: boolean;
-  error: string;
-  hint: string;
   importInputRef: MutableRefObject<HTMLInputElement | null>;
   onImportFile: (file: File) => void;
-  teamsListOpen: boolean;
-  onCloseTeams: () => void;
-  session: RemoteSession | null;
   /** 等待同步到云端的本地页面数，0 时不显示同步按钮 */
   syncPending: number;
   onOpenSync: () => void;
@@ -86,9 +79,6 @@ type Props = {
   mobileMenuOpen: boolean;
   onMobileMenu: (open: boolean) => void;
   onDrop: (files: File[], point: { x: number; y: number } | null) => void;
-  teams: TeamInfo[];
-  onTeamsChanged: () => void;
-  onManageTeam: (team: TeamInfo) => void;
   nodes: PageNode[];
   editorEpoch: number;
   language: string;
@@ -114,18 +104,14 @@ type Props = {
 /** 顶栏和正文区。侧栏、登录和各种弹窗留在外壳里。 */
 export function EditorWorkspace(props: Props) {
   const { t } = useTranslation();
+  const { hint, error } = useWorkspaceStatus();
   const {
     isMobile,
     sidebarOpen,
     onOpenSidebar,
     remote,
-    error,
-    hint,
     importInputRef,
     onImportFile,
-    teamsListOpen,
-    onCloseTeams,
-    session,
     syncPending,
     onOpenSync,
     page,
@@ -146,9 +132,6 @@ export function EditorWorkspace(props: Props) {
     mobileMenuOpen,
     onMobileMenu,
     onDrop,
-    teams,
-    onTeamsChanged,
-    onManageTeam,
     nodes,
     editorEpoch,
     language,
@@ -212,154 +195,144 @@ export function EditorWorkspace(props: Props) {
             if (file) onImportFile(file);
           }}
         />
-        {teamsListOpen ? (
-          <Button type="button" variant="ghost" size="icon" aria-label={t("team.close")} onClick={onCloseTeams}>
-            <X {...iconProps} />
-          </Button>
-        ) : (
-          <>
-            <span className="hidden shrink-0 items-center gap-2 sm:inline-flex">
-              {syncPending > 0 ? (
-                <Button type="button" variant="outline" size="sm" onClick={onOpenSync}>
-                  <Cloud {...iconProps} />
-                  {t("common.syncLocalPages")} · {syncPending}
+          <span className="hidden shrink-0 items-center gap-2 sm:inline-flex">
+            {syncPending > 0 ? (
+              <Button type="button" variant="outline" size="sm" onClick={onOpenSync}>
+                <Cloud {...iconProps} />
+                {t("common.syncLocalPages")} · {syncPending}
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" size="icon" aria-label={t("app.undo")} disabled={blocked || pageReadOnly || !canUndo} onClick={onUndo}>
+              <Undo2 {...iconProps} />
+            </Button>
+            <Button type="button" variant="outline" size="icon" aria-label={t("app.redo")} disabled={blocked || pageReadOnly || !canRedo} onClick={onRedo}>
+              <Redo2 {...iconProps} />
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled={blocked} onClick={() => importInputRef.current?.click()}>
+              <Download {...iconProps} />
+              {t("common.import")}
+            </Button>
+            <Popover open={exportOpen} onOpenChange={onExportOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm" disabled={blocked}>
+                  <FileOutput {...iconProps} />
+                  {t("app.export")}
                 </Button>
-              ) : null}
-              <Button type="button" variant="outline" size="icon" aria-label={t("app.undo")} disabled={blocked || pageReadOnly || !canUndo} onClick={onUndo}>
-                <Undo2 {...iconProps} />
+              </PopoverTrigger>
+              <PopoverContent>
+                {(["pdf", "word"] as const).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+                    onClick={() => {
+                      onExportOpen(false);
+                      if (page) onExport(format);
+                    }}
+                  >
+                    <FileTypeIcon type={format} />
+                    {format === "pdf" ? t("common.exportPdf") : t("common.exportWord")}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+            <Button type="button" variant="outline" size="sm" disabled={blocked || pageReadOnly} onClick={onDeletePage}>
+              <Trash2 {...iconProps} />
+              {t("common.delete")}
+            </Button>
+            <Button type="button" variant="outline" size="icon" aria-label={t("wikiAsk.title")} onClick={onOpenWiki}>
+              <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>
+            </Button>
+            {workEnabled ? (
+              <Button type="button" variant="outline" size="sm" aria-label={t("work.title")} onClick={onOpenWork}>
+                {t("work.title")}
               </Button>
-              <Button type="button" variant="outline" size="icon" aria-label={t("app.redo")} disabled={blocked || pageReadOnly || !canRedo} onClick={onRedo}>
-                <Redo2 {...iconProps} />
-              </Button>
-              <Button type="button" variant="outline" size="sm" disabled={blocked} onClick={() => importInputRef.current?.click()}>
-                <Download {...iconProps} />
-                {t("common.import")}
-              </Button>
-              <Popover open={exportOpen} onOpenChange={onExportOpen}>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" disabled={blocked}>
-                    <FileOutput {...iconProps} />
-                    {t("app.export")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent>
-                  {(["pdf", "word"] as const).map((format) => (
-                    <button
-                      key={format}
-                      type="button"
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
+            ) : null}
+            <LanguageSwitch onChange={onSwitchLocale} />
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 sm:hidden">
+            <Popover open={mobileMenuOpen} onOpenChange={onMobileMenu}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="icon" aria-label={t("app.moreActions")}>
+                  <Ellipsis {...iconProps} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-60 p-1">
+                {syncPending > 0 ? (
+                  <>
+                    <MenuRow
+                      icon={<Cloud {...iconProps} />}
                       onClick={() => {
-                        onExportOpen(false);
-                        if (page) onExport(format);
+                        onMobileMenu(false);
+                        onOpenSync();
                       }}
                     >
-                      <FileTypeIcon type={format} />
-                      {format === "pdf" ? t("common.exportPdf") : t("common.exportWord")}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              <Button type="button" variant="outline" size="sm" disabled={blocked || pageReadOnly} onClick={onDeletePage}>
-                <Trash2 {...iconProps} />
-                {t("common.delete")}
+                      {t("common.syncLocalPages")} · {syncPending}
+                    </MenuRow>
+                    <PopoverSeparator />
+                  </>
+                ) : null}
+                <MenuRow
+                  icon={<Download {...iconProps} />}
+                  disabled={blocked}
+                  onClick={() => {
+                    onMobileMenu(false);
+                    importInputRef.current?.click();
+                  }}
+                >
+                  {t("common.import")}
+                </MenuRow>
+                <MenuRow
+                  icon={<FileTypeIcon type="pdf" />}
+                  disabled={blocked}
+                  onClick={() => {
+                    onMobileMenu(false);
+                    if (page) onExport("pdf");
+                  }}
+                >
+                  {t("common.exportPdf")}
+                </MenuRow>
+                <MenuRow
+                  icon={<FileTypeIcon type="word" />}
+                  disabled={blocked}
+                  onClick={() => {
+                    onMobileMenu(false);
+                    if (page) onExport("word");
+                  }}
+                >
+                  {t("common.exportWord")}
+                </MenuRow>
+                <MenuRow
+                  icon={<Trash2 {...iconProps} />}
+                  danger
+                  disabled={blocked || pageReadOnly}
+                  onClick={() => {
+                    onMobileMenu(false);
+                    if (page) onDeletePage();
+                  }}
+                >
+                  {t("common.delete")}
+                </MenuRow>
+                <PopoverSeparator />
+                <div className="flex items-center justify-between gap-2 px-2 py-1">
+                  <span className="text-xs text-muted-foreground">{t("common.language")}</span>
+                  <LanguageSwitch onChange={onSwitchLocale} />
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button type="button" variant="outline" size="icon" aria-label={t("wikiAsk.title")} onClick={onOpenWiki}>
+              <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>
+            </Button>
+            {workEnabled ? (
+              <Button type="button" variant="outline" size="sm" aria-label={t("work.title")} onClick={onOpenWork}>
+                {t("work.title")}
               </Button>
-              <Button type="button" variant="outline" size="icon" aria-label={t("wikiAsk.title")} onClick={onOpenWiki}>
-                <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>
-              </Button>
-              {workEnabled ? (
-                <Button type="button" variant="outline" size="sm" aria-label={t("work.title")} onClick={onOpenWork}>
-                  {t("work.title")}
-                </Button>
-              ) : null}
-              <LanguageSwitch onChange={onSwitchLocale} />
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1 sm:hidden">
-              <Popover open={mobileMenuOpen} onOpenChange={onMobileMenu}>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="outline" size="icon" aria-label={t("app.moreActions")}>
-                    <Ellipsis {...iconProps} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-60 p-1">
-                  {syncPending > 0 ? (
-                    <>
-                      <MenuRow
-                        icon={<Cloud {...iconProps} />}
-                        onClick={() => {
-                          onMobileMenu(false);
-                          onOpenSync();
-                        }}
-                      >
-                        {t("common.syncLocalPages")} · {syncPending}
-                      </MenuRow>
-                      <PopoverSeparator />
-                    </>
-                  ) : null}
-                  <MenuRow
-                    icon={<Download {...iconProps} />}
-                    disabled={blocked}
-                    onClick={() => {
-                      onMobileMenu(false);
-                      importInputRef.current?.click();
-                    }}
-                  >
-                    {t("common.import")}
-                  </MenuRow>
-                  <MenuRow
-                    icon={<FileTypeIcon type="pdf" />}
-                    disabled={blocked}
-                    onClick={() => {
-                      onMobileMenu(false);
-                      if (page) onExport("pdf");
-                    }}
-                  >
-                    {t("common.exportPdf")}
-                  </MenuRow>
-                  <MenuRow
-                    icon={<FileTypeIcon type="word" />}
-                    disabled={blocked}
-                    onClick={() => {
-                      onMobileMenu(false);
-                      if (page) onExport("word");
-                    }}
-                  >
-                    {t("common.exportWord")}
-                  </MenuRow>
-                  <MenuRow
-                    icon={<Trash2 {...iconProps} />}
-                    danger
-                    disabled={blocked || pageReadOnly}
-                    onClick={() => {
-                      onMobileMenu(false);
-                      if (page) onDeletePage();
-                    }}
-                  >
-                    {t("common.delete")}
-                  </MenuRow>
-                  <PopoverSeparator />
-                  <div className="flex items-center justify-between gap-2 px-2 py-1">
-                    <span className="text-xs text-muted-foreground">{t("common.language")}</span>
-                    <LanguageSwitch onChange={onSwitchLocale} />
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Button type="button" variant="outline" size="icon" aria-label={t("wikiAsk.title")} onClick={onOpenWiki}>
-                <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>
-              </Button>
-              {workEnabled ? (
-                <Button type="button" variant="outline" size="sm" aria-label={t("work.title")} onClick={onOpenWork}>
-                  {t("work.title")}
-                </Button>
-              ) : null}
-            </span>
-          </>
-        )}
+            ) : null}
+          </span>
       </header>
-      <FileDropZone hasPage={Boolean(page) && !teamsListOpen && !emptyTeamId} className="min-h-0 flex-1" onDrop={onDrop}>
+      <FileDropZone hasPage={Boolean(page) && !emptyTeamId} className="min-h-0 flex-1" onDrop={onDrop}>
         {emptyTeamId ? (
           <EmptyState hasPages={false} onCreate={() => onCreatePage(null, emptyTeamId)} />
-        ) : teamsListOpen && session ? (
-          <TeamListPanel session={session} teams={teams} onChanged={onTeamsChanged} onManage={onManageTeam} />
         ) : page ? (
           <BlockEditor
             key={`${remote ? "remote" : "local"}:${page.id}:${editorEpoch}:${language}:${pageReadOnly ? "ro" : "rw"}`}

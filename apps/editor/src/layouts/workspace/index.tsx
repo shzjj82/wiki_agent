@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { AppUpdateProvider, useAppUpdateUi } from "@/components/app-update";
@@ -17,11 +17,11 @@ import type { ExportFormat } from "@/lib/document/export";
 import { appPagePath, loginPath } from "@/lib/route";
 import { useIsMobile } from "@/lib/useMediaQuery";
 import { useRevealCaret, useVisualViewport } from "@/lib/useKeyboardInset";
-import type { PageNode } from "@/store/localStore";
+import { ensureLocalPages, listLocal, type PageNode } from "@/store/localStore";
 import { pageIdFromTodo, type NotifyTodo } from "@/store/notifyStore";
-import { changePasswordRemote, loadSession, logoutRemote, subscribeSession, type RemoteSession } from "@/store/remoteStore";
+import { changePasswordRemote, listRemote, loadSession, logoutRemote, subscribeSession, type RemoteSession } from "@/store/remoteStore";
 import { canWriteTeam, listTeams, readActiveTeamId, writeActiveTeamId, type TeamInfo } from "@/store/teamStore";
-import { WorkspaceContext, type PageCommands, type WorkspaceContextValue } from "./context";
+import { WorkspaceContext, WorkspaceStatusContext, type PageCommands, type WorkspaceContextValue } from "./context";
 import { useLocalSync } from "./useLocalSync";
 
 const EMPTY_TEAMS: TeamInfo[] = [];
@@ -106,9 +106,19 @@ function WorkspaceShell() {
   const [passwordOpen, setPasswordOpen] = useState(false);
 
   const openLogin = useCallback((replace = false) => navigate(loginPath(), { replace }), [navigate]);
+  /** 只取侧栏的页面树。编辑器页会连同当前文档一起加载，用不到这里 */
+  const loadNodes = useCallback(async (current: RemoteSession | null) => {
+    if (!current) {
+      ensureLocalPages();
+      setNodes(listLocal());
+      return;
+    }
+    const list = await listRemote(current);
+    if (sessionRef.current === current) setNodes(list);
+  }, []);
   const reloadPages = useCallback(
-    (selectId?: string | null) => commandsRef.current?.reloadPages(selectId) ?? Promise.resolve(),
-    [],
+    (selectId?: string | null) => commandsRef.current?.reloadPages(selectId) ?? loadNodes(sessionRef.current),
+    [loadNodes],
   );
   const reloadTeams = useCallback(() => {
     const current = sessionRef.current;
@@ -148,6 +158,13 @@ function WorkspaceShell() {
         if (sessionRef.current === session) setTeamsReady(true);
       });
   }, [session]);
+
+  /** 子页面注册了页面操作就由它加载（子组件的 effect 先于外壳执行）；否则外壳自己填侧栏。 */
+  useEffect(() => {
+    if (commandsRef.current) return;
+    setNodes([]);
+    void loadNodes(session).catch(() => undefined);
+  }, [session, loadNodes]);
 
   const sync = useLocalSync({ session, setHint, reloadPages: () => reloadPages(null) });
 
@@ -203,33 +220,35 @@ function WorkspaceShell() {
     if (pageId) onSidebarOpen(pageId);
   }
 
-  const context: WorkspaceContextValue = {
-    isMobile,
-    session,
-    sessionRef,
-    nodes,
-    setNodes,
-    teams,
-    setTeams,
-    teamsReady,
-    activeTeamId,
-    setActiveTeamId,
-    hint,
-    setHint,
-    error,
-    setError,
-    sidebarOpen,
-    setSidebarOpen,
-    setSelectedPageId,
-    openLogin,
-    openTeamDetails: setDetailTeam,
-    reloadTeams,
-    sync: { pending: sync.pending, open: sync.openSummary },
-    commandsRef,
-  };
+  const syncPending = sync.pending;
+  const openSync = sync.openSummary;
+  const context = useMemo<WorkspaceContextValue>(
+    () => ({
+      isMobile,
+      session,
+      sessionRef,
+      nodes,
+      setNodes,
+      teams,
+      teamsReady,
+      activeTeamId,
+      setActiveTeamId,
+      setHint,
+      setError,
+      sidebarOpen,
+      setSidebarOpen,
+      setSelectedPageId,
+      openLogin,
+      sync: { pending: syncPending, open: openSync },
+      commandsRef,
+    }),
+    [isMobile, session, nodes, teams, teamsReady, activeTeamId, sidebarOpen, setSelectedPageId, openLogin, syncPending, openSync],
+  );
+  const status = useMemo(() => ({ hint, error }), [hint, error]);
 
   return (
     <WorkspaceContext.Provider value={context}>
+      <WorkspaceStatusContext.Provider value={status}>
       <div
         /* 整个外壳钉在“可视视口”上（top 跟随 offsetTop、height = 可视高度）：
            键盘弹出 / iOS 平移可视视口露光标时，外壳始终精确覆盖用户看到的那块区域，
@@ -397,6 +416,7 @@ function WorkspaceShell() {
         <SyncSummaryDialog {...sync.summaryProps} />
         <SyncChecklistDialog {...sync.checklistProps} />
       </div>
+      </WorkspaceStatusContext.Provider>
     </WorkspaceContext.Provider>
   );
 }

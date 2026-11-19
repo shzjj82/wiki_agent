@@ -3,9 +3,18 @@ import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { t } from "@/i18n";
 import { lintCode, normalizeCodeLanguage, type CodeLint } from "@/lib/document/codeLint";
-import { highlightCode } from "@/lib/document/highlight";
 import { menuIcons } from "../menuIcons";
 import { CodeBlockBar } from "./CodeBlockBar";
+
+/** highlight.js 带 20 种语言，第一次画代码块时再加载；加载前先显示纯文本。 */
+let highlightCode: ((source: string, language?: string) => string) | null = null;
+let highlighterLoading: Promise<void> | null = null;
+function loadHighlighter(): Promise<void> {
+  highlighterLoading ??= import("@/lib/document/highlight").then((m) => {
+    highlightCode = m.highlightCode;
+  });
+  return highlighterLoading;
+}
 
 type CodeBlockData = {
   code?: string;
@@ -285,7 +294,7 @@ export class CodeBlockTool implements BlockTool {
         row.textContent = "\u00a0";
         return row;
       }
-      if (!language || language === "plain") {
+      if (!language || language === "plain" || !highlightCode) {
         row.textContent = line;
         return row;
       }
@@ -293,6 +302,11 @@ export class CodeBlockTool implements BlockTool {
       return row;
     });
     this.pre.replaceChildren(...rows);
+    if (!highlightCode && language && language !== "plain") {
+      void loadHighlighter().then(() => {
+        if (this.pre.isConnected) this.paint();
+      });
+    }
     const lint = lintCode(code, language);
     this.wrapper.classList.toggle("is-invalid", !lint.ok);
     this.paintGutter(code, lint);
