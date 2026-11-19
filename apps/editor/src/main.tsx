@@ -4,6 +4,7 @@ import "@/i18n";
 import { App } from "./App";
 import { MarkdownImportPage } from "@/components/markdown-import";
 import { SharedPage } from "@/components/shared-page";
+import { PhonePortraitLock } from "@/components/phone-portrait-lock";
 import { registerPwa } from "@/components/pwa-install";
 import { isMarkdownRoute } from "@/lib/route";
 import { isShareRoute, shareTokenFromPath } from "@/lib/shareRoute";
@@ -20,13 +21,18 @@ function Root() {
     return () => window.removeEventListener("popstate", sync);
   }, []);
 
+  let page = <App />;
   if (isShareRoute(path)) {
-    return <SharedPage token={shareTokenFromPath(path) ?? ""} />;
+    page = <SharedPage token={shareTokenFromPath(path) ?? ""} />;
+  } else if (isMarkdownRoute(path)) {
+    page = <MarkdownImportPage />;
   }
-  if (isMarkdownRoute(path)) {
-    return <MarkdownImportPage />;
-  }
-  return <App />;
+  return (
+    <>
+      {page}
+      <PhonePortraitLock />
+    </>
+  );
 }
 
 createRoot(document.getElementById("root")!).render(<Root />);
