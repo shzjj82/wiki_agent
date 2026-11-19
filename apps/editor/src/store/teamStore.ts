@@ -3,6 +3,17 @@ import { request, type RemoteSession } from "./remoteStore";
 
 export type TeamRole = "owner" | "developer" | "user";
 
+export type TeamPreview = {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  memberCount: number;
+  alreadyMember: boolean;
+  role: TeamRole | null;
+};
+
 export type TeamInfo = {
   id: string;
   name: string;
@@ -112,6 +123,22 @@ function readTeam(data: unknown): TeamInfo | null {
   return toTeam(data) ?? toTeam(asRecord(data).team);
 }
 
+export async function updateTeam(
+  session: RemoteSession,
+  id: string,
+  input: { name: string; description: string },
+): Promise<TeamInfo> {
+  const data = await request<unknown>(session, "PATCH", `${WIKI_TEAMS}/${encodeURIComponent(id)}`, {
+    name: input.name.trim(),
+    description: input.description.trim(),
+  });
+  const team = readTeam(data);
+  if (!team) {
+    throw new Error(t("team.saveFailed"));
+  }
+  return team;
+}
+
 export async function createTeam(session: RemoteSession, name: string): Promise<TeamInfo> {
   const data = await request<unknown>(session, "POST", WIKI_TEAMS, {
     name: name.trim(),
@@ -121,6 +148,29 @@ export async function createTeam(session: RemoteSession, name: string): Promise<
     throw new Error(t("team.createFailed"));
   }
   return team;
+}
+
+/** 用团队码看名称和详情，不加入。 */
+export async function previewTeam(session: RemoteSession, raw: string): Promise<TeamPreview> {
+  const code = raw.trim();
+  if (!code) {
+    throw new Error(t("team.badCode"));
+  }
+  const row = asRecord(await request<unknown>(session, "GET", `${WIKI_TEAMS}/by-code/${encodeURIComponent(code)}`));
+  const id = typeof row.id === "string" ? row.id : "";
+  if (!id) {
+    throw new Error(t("team.loadFailed"));
+  }
+  return {
+    id,
+    name: typeof row.name === "string" && row.name.trim() ? row.name : t("team.untitled"),
+    description: typeof row.description === "string" ? row.description : null,
+    createdAt: typeof row.createdAt === "string" ? row.createdAt : "",
+    updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : "",
+    memberCount: typeof row.memberCount === "number" ? row.memberCount : 0,
+    alreadyMember: row.alreadyMember === true,
+    role: isRole(row.role) ? row.role : null,
+  };
 }
 
 /** 用接口下发的团队码加入，不在本地团队列表里反查 id */

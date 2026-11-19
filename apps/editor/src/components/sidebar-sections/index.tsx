@@ -6,6 +6,8 @@ import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/lib/useMediaQuery";
 import type { ExportFormat } from "@/lib/document/export";
 import { pageTitle } from "@/i18n";
 import type { PageNode } from "@/store/localStore";
@@ -57,24 +59,65 @@ function MoreMenu({
 }) {
   const open = openId === menuId;
   const hidden = hoverOnly && !open;
+  const mobile = useIsMobile();
+  const trigger = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label={label}
+      className={hidden ? "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100" : undefined}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!mobile) {
+          return;
+        }
+        onOpenId((current) => (current === menuId ? null : menuId));
+      }}
+    >
+      <Ellipsis {...iconProps} />
+    </Button>
+  );
+  if (mobile) {
+    return (
+      <>
+        {trigger}
+        {open ? <Sheet open onOpenChange={(next) => onOpenId((current) => (next ? menuId : current === menuId ? null : current))}>
+          <SheetContent side="bottom">
+            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
+            <SheetTitle className="px-4 py-3 text-left">{label}</SheetTitle>
+            <SheetDescription className="sr-only">{label}</SheetDescription>
+            <div className="grid px-2 pb-2">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={
+                    item.danger
+                      ? "flex h-11 items-center rounded-lg px-3 text-left text-sm text-destructive"
+                      : "flex h-11 items-center rounded-lg px-3 text-left text-sm"
+                  }
+                  onClick={() => {
+                    onOpenId((current) => (current === menuId ? null : current));
+                    item.onClick();
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet> : null}
+      </>
+    );
+  }
   return (
     <DropdownMenu
       modal={false}
       open={open}
       onOpenChange={(next) => onOpenId((current) => (next ? menuId : current === menuId ? null : current))}
     >
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={label}
-          className={hidden ? "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100" : undefined}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Ellipsis {...iconProps} />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-40">
         {items.map((item) => (
           <div key={item.id}>
@@ -415,7 +458,7 @@ function SidebarSectionsInner({
                 const pages = hasPages(list);
                 const menu: MenuItem[] = [];
                 if (onTeamDetails) menu.push({ id: "details", label: t("team.manageTeam"), onClick: () => onTeamDetails(team) });
-                if (onInviteTeam) menu.push({ id: "invite", label: t("team.inviteMembers"), onClick: () => onInviteTeam(team) });
+                if (onInviteTeam && canManageTeam(team.role)) menu.push({ id: "invite", label: t("team.inviteMembers"), onClick: () => onInviteTeam(team) });
                 if (canManageTeam(team.role)) {
                   if (onDissolveTeam) menu.push({ id: "dissolve", label: t("team.dissolve"), danger: true, onClick: () => onDissolveTeam(team) });
                 } else if (onLeaveTeam) {

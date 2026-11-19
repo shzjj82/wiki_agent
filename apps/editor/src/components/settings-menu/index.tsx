@@ -21,7 +21,6 @@ type Props = {
   onToggleTeamMode: () => void;
   teamMode: boolean;
   canSwitchTeam: boolean;
-  canManageTeam: boolean;
   onManageTeam: () => void;
 };
 

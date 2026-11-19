@@ -47,6 +47,7 @@
 | POST | `/teams/:id/leave` | `teamStore.ts` 退出团队 | 用户 JWT |
 | GET | `/teams/:id` | `teamStore.ts` 团队详情和成员 | 用户 JWT |
 | PATCH | `/teams/:id/members/:accountId` | `teamStore.ts` 修改成员角色，body `{ role }` | 用户 JWT |
+| PATCH | `/wiki/teams/:id` | `teamStore.ts` 拥有者修改名称和详情，body `{ name, description }`。邀请链接是编辑器自己的 `/app/join/:code`，打开后仍走加入接口，不另签凭证 | 用户 JWT |
 
 ### 待办与通知
 

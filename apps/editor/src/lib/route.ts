@@ -36,11 +36,22 @@ export function readAppLocation(href = typeof window === "undefined" ? "http://l
   let pageId: string | null = null;
   if (path.startsWith("/app/")) {
     const rest = decodeURIComponent(path.slice("/app/".length));
-    if (rest && rest !== "markdown") {
+    if (rest && rest !== "markdown" && rest !== "join" && !rest.startsWith("join/")) {
       pageId = rest;
     }
   }
   return { pageId };
+}
+
+/** `/app/join/:code`：邀请链接。打开后用团队码加入，不另签凭证。 */
+export function joinCodeFromPath(pathname = window.location.pathname): string | null {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  const match = path.match(/^\/app\/join\/([^/]+)$/i);
+  if (!match) {
+    return null;
+  }
+  const code = decodeURIComponent(match[1]).trim();
+  return code || null;
 }
 
 export function appPagePath(pageId: string | null): string {

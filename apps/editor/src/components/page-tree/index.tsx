@@ -3,6 +3,8 @@ import { ArrowUpToLine, ChevronDown, ChevronRight, Ellipsis, FileText, Plus, Sha
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/lib/useMediaQuery";
 import { pageTitle } from "@/i18n";
 import type { ExportFormat } from "@/lib/document/export";
 import { useTranslation } from "react-i18next";
@@ -108,24 +110,72 @@ const RowMenu = memo(function RowMenu({
   onExpand,
 }: RowMenuProps) {
   const { t } = useTranslation();
+  const mobile = useIsMobile();
   const triggerClass =
     open || selected
       ? "relative z-20 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
       : "relative z-20 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sidebar-accent hover:text-foreground focus-visible:opacity-100 max-sm:opacity-100";
 
+  const trigger = (
+    <button
+      type="button"
+      className={triggerClass}
+      aria-label={t("pageTree.more")}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (mobile) {
+          onOpenChange(!open);
+        }
+      }}
+    >
+      <Ellipsis {...iconProps} size={14} />
+    </button>
+  );
+  const actions = (
+    <>
+      <button type="button" className="flex h-11 items-center gap-2 rounded-lg px-3 text-left text-sm" onClick={() => { onExpand(nodeId); onCreateChild(nodeId); onOpenChange(false); }}>
+        <Plus {...iconProps} size={14} />
+        {t("pageTree.addSubpage")}
+      </button>
+      {onShare ? (
+        <button type="button" className="flex h-11 items-center gap-2 rounded-lg px-3 text-left text-sm" onClick={() => { onShare(nodeId); onOpenChange(false); }}>
+          <Share2 {...iconProps} size={14} />
+          {t("share.menu")}
+        </button>
+      ) : null}
+      <button type="button" className="flex h-11 items-center gap-2 rounded-lg px-3 text-left text-sm" onClick={() => { onExport(nodeId, "pdf"); onOpenChange(false); }}>
+        <FileTypeIcon type="pdf" />
+        {t("common.exportPdf")}
+      </button>
+      <button type="button" className="flex h-11 items-center gap-2 rounded-lg px-3 text-left text-sm" onClick={() => { onExport(nodeId, "word"); onOpenChange(false); }}>
+        <FileTypeIcon type="word" />
+        {t("common.exportWord")}
+      </button>
+      <button type="button" className="flex h-11 items-center gap-2 rounded-lg px-3 text-left text-sm text-destructive" onClick={() => { onDelete(nodeId); onOpenChange(false); }}>
+        <Trash2 {...iconProps} size={14} />
+        {t("common.delete")}
+      </button>
+    </>
+  );
+  if (mobile) {
+    return (
+      <>
+        {trigger}
+        {open ? <Sheet open onOpenChange={onOpenChange}>
+          <SheetContent side="bottom">
+            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
+            <SheetTitle className="px-4 py-3 text-left">{t("pageTree.more")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("pageTree.more")}</SheetDescription>
+            <div className="grid px-2 pb-2">{actions}</div>
+          </SheetContent>
+        </Sheet> : null}
+      </>
+    );
+  }
   return (
     <DropdownMenu modal={false} open={open} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={triggerClass}
-          aria-label={t("pageTree.more")}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Ellipsis {...iconProps} size={14} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem
           onSelect={() => {

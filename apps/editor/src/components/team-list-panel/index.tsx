@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { canManageTeam, createTeam, joinTeam, type TeamInfo, type TeamRole } from "@/store/teamStore";
+import { createTeam, joinTeam, type TeamInfo, type TeamRole } from "@/store/teamStore";
 import type { RemoteSession } from "@/store/remoteStore";
 
 type Props = {
@@ -17,6 +17,23 @@ function roleKey(role: TeamRole): "team.roleOwner" | "team.roleDeveloper" | "tea
   if (role === "owner") return "team.roleOwner";
   if (role === "developer") return "team.roleDeveloper";
   return "team.roleUser";
+}
+
+function roleHint(role: TeamRole): "team.roleOwnerHint" | "team.roleDeveloperHint" | "team.roleUserHint" {
+  if (role === "owner") return "team.roleOwnerHint";
+  if (role === "developer") return "team.roleDeveloperHint";
+  return "team.roleUserHint";
+}
+
+function formatTime(value: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 export function TeamListPanel({ session, teams, onChanged, onManage }: Props) {
@@ -40,66 +57,77 @@ export function TeamListPanel({ session, teams, onChanged, onManage }: Props) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-6 px-4 py-6 sm:px-6">
-        <h2 className="text-base font-medium">{t("team.list")}</h2>
-        <form
-          className="grid gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const next = name.trim();
-            if (!next) return;
-            void run(async () => {
-              await createTeam(session, next);
-              setName("");
-            });
-          }}
-        >
-          <Label htmlFor="team-list-name">{t("team.createTeam")}</Label>
-          <div className="flex gap-2">
-            <Input id="team-list-name" value={name} onChange={(event) => setName(event.target.value)} placeholder={t("team.namePlaceholder")} />
-            <Button type="submit" disabled={busy || !name.trim()}>
-              {t("team.create")}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">{t("team.createHint")}</p>
-        </form>
-        <form
-          className="grid gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!code.trim()) return;
-            void run(async () => {
-              await joinTeam(session, code);
-              setCode("");
-            });
-          }}
-        >
-          <Label htmlFor="team-list-code">{t("team.joinTeam")}</Label>
-          <div className="flex gap-2">
-            <Input id="team-list-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder={t("team.joinPlaceholder")} />
-            <Button type="submit" variant="outline" disabled={busy || !code.trim()}>
-              {t("team.join")}
-            </Button>
-          </div>
-        </form>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        {teams.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("team.empty")}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {teams.map((team) => (
-              <li key={team.id} className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{team.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{t(roleKey(team.role))}</span>
-                {canManageTeam(team.role) ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => onManage(team)}>
-                    {t("team.manageTeam")}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <h2 className="text-base font-medium">{t("team.list")}</h2>
+      <form
+        className="grid gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const next = name.trim();
+          if (!next) return;
+          void run(async () => {
+            await createTeam(session, next);
+            setName("");
+          });
+        }}
+      >
+        <Label htmlFor="team-list-name">{t("team.createTeam")}</Label>
+        <div className="flex gap-2">
+          <Input id="team-list-name" value={name} onChange={(event) => setName(event.target.value)} placeholder={t("team.namePlaceholder")} />
+          <Button type="submit" disabled={busy || !name.trim()}>
+            {t("team.create")}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("team.createHint")}</p>
+      </form>
+      <form
+        className="grid gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!code.trim()) return;
+          void run(async () => {
+            await joinTeam(session, code);
+            setCode("");
+          });
+        }}
+      >
+        <Label htmlFor="team-list-code">{t("team.joinTeam")}</Label>
+        <div className="flex gap-2">
+          <Input id="team-list-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder={t("team.joinPlaceholder")} />
+          <Button type="submit" variant="outline" disabled={busy || !code.trim()}>
+            {t("team.join")}
+          </Button>
+        </div>
+      </form>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {teams.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("team.empty")}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {teams.map((team) => (
+            <li key={team.id} className="rounded-lg border border-border px-3 py-3">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{team.name}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {team.description?.trim() || t("team.noDescription")}
+                  </p>
+                  <p className="mt-2 text-xs text-foreground">{t(roleKey(team.role))}</p>
+                  <p className="text-xs leading-5 text-muted-foreground">{t(roleHint(team.role))}</p>
+                  {team.updatedAt ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {t("team.updatedAt")} {formatTime(team.updatedAt)}
+                    </p>
+                  ) : null}
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => onManage(team)}>
+                  {t("team.manageTeam")}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -81,19 +81,23 @@ import {
 } from "@/store/remoteStore";
 import { readSyncSettings, writeSyncSettings, type SyncSettings } from "@/store/syncSettings";
 import {
-  canManageTeam,
   canWriteTeam,
   dissolveTeam,
+  joinTeam,
   leaveTeam,
   listTeams,
+  previewTeam,
+  refreshTeamCode,
+  type TeamPreview,
   readActiveTeamId,
   writeActiveTeamId,
   type TeamInfo,
 } from "@/store/teamStore";
+import { TeamInviteFields } from "@/components/team-invite";
+import { TeamJoinDialog } from "@/components/team-join-dialog";
 import { TeamListPanel } from "@/components/team-list-panel";
 import { TeamManageSidebar } from "@/components/team-manage-sidebar";
 import { pageTitle, setAppLocale, type AppLocale } from "@/i18n";
-import { copyText } from "@/lib/clipboard";
 import { documentFromMarkdown, titleFromMarkdown } from "@/lib/document/fromMarkdown";
 import { exportDocument, type ExportFormat } from "@/lib/document/export";
 import { fileKind, isImageFile } from "@/lib/document/fileKinds";
@@ -108,7 +112,7 @@ import {
   saveAttachment,
   type AttachmentData,
 } from "@/store/fileStore";
-import { readAppLocation, takePendingPageId, writeAppLocation } from "@/lib/route";
+import { joinCodeFromPath, readAppLocation, takePendingPageId, writeAppLocation } from "@/lib/route";
 
 const iconProps = { size: 16 };
 const EMPTY_TEAMS: TeamInfo[] = [];
@@ -226,8 +230,11 @@ function AppMain() {
   const [teamsListOpen, setTeamsListOpen] = useState(false);
   const [detailTeam, setDetailTeam] = useState<TeamInfo | null>(null);
   const [inviteTeam, setInviteTeam] = useState<TeamInfo | null>(null);
-  const [leaveTarget, setLeaveTarget] = useState<TeamInfo | null>(null);
+  const [inviteRefreshing, setInviteRefreshing] = useState(false);
+  const [joinPrompt, setJoinPrompt] = useState<{ code: string; loading: boolean; error: string; preview: TeamPreview | null } | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
   const [dissolveTarget, setDissolveTarget] = useState<TeamInfo | null>(null);
+  const [leaveTarget, setLeaveTarget] = useState<TeamInfo | null>(null);
   const [emptyTeamId, setEmptyTeamId] = useState<string | null>(null);
   const [teamPanel, setTeamPanel] = useState<"create" | "join">("create");
   const [activeTeamId, setActiveTeamId] = useState<string | null>(readActiveTeamId);
@@ -346,12 +353,12 @@ function AppMain() {
     }
     if (!loaded) {
       setPage(null);
-      writeAppLocation(null, history);
+      if (!joinCodeFromPath()) writeAppLocation(null, history);
       return;
     }
     const healed = withLivePageLinks(loaded, list);
     setPage(healed);
-    writeAppLocation(healed.id, history);
+    if (!joinCodeFromPath()) writeAppLocation(healed.id, history);
     if (healed !== loaded) {
       saveLocal(healed);
       setNodes(listLocal());
@@ -370,7 +377,7 @@ function AppMain() {
     let id = selectId === undefined ? (pageRef.current?.id ?? list[0]?.id) : (selectId ?? list[0]?.id);
     if (!id) {
       setPage(null);
-      writeAppLocation(null, history);
+      if (!joinCodeFromPath()) writeAppLocation(null, history);
       return;
     }
     let loaded: EditorPage;
@@ -388,7 +395,7 @@ function AppMain() {
     }
     const healed = withLivePageLinks(loaded, list);
     setPage(healed);
-    writeAppLocation(healed.id, history);
+    if (!joinCodeFromPath()) writeAppLocation(healed.id, history);
     if (healed !== loaded) {
       void saveRemote(nextSession, healed).catch(() => undefined);
     }
@@ -526,6 +533,49 @@ function AppMain() {
         }
       });
   }, [session, refreshLocal, refreshRemote]);
+
+  useEffect(() => {
+    let alive = true;
+    let requested = "";
+    function sync() {
+      const code = joinCodeFromPath();
+      if (!code) {
+        requested = "";
+        setJoinPrompt(null);
+        return;
+      }
+      if (!session) {
+        setAuthOpen(true);
+        setJoinPrompt(null);
+        return;
+      }
+      if (requested === code) {
+        return;
+      }
+      requested = code;
+      setJoinPrompt({ code, loading: true, error: "", preview: null });
+      void previewTeam(session, code)
+        .then((preview) => {
+          if (!alive) return;
+          setJoinPrompt({ code, loading: false, error: "", preview });
+        })
+        .catch((err: unknown) => {
+          if (!alive) return;
+          setJoinPrompt({
+            code,
+            loading: false,
+            error: err instanceof Error ? err.message : t("team.loadFailed"),
+            preview: null,
+          });
+        });
+    }
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => {
+      alive = false;
+      window.removeEventListener("popstate", sync);
+    };
+  }, [session, t]);
 
   useEffect(() => {
     if (!session) {
@@ -1458,7 +1508,6 @@ function AppMain() {
                   }}
                   teamMode={activeTeamId !== null}
                   canSwitchTeam={teams.length > 0}
-                  canManageTeam={canManageTeam(teams.find((team) => team.id === activeTeamId)?.role)}
                   onManageTeam={() => {
                     const current = teams.find((team) => team.id === activeTeamId);
                     if (current) setDetailTeam(current);
@@ -2036,20 +2085,86 @@ function AppMain() {
           panel={teamPanel}
         />
       ) : null}
+      <TeamJoinDialog
+        open={joinPrompt !== null}
+        loading={joinPrompt?.loading ?? false}
+        busy={joinBusy}
+        error={joinPrompt?.error ?? ""}
+        preview={joinPrompt?.preview ?? null}
+        onCancel={() => {
+          if (joinBusy) return;
+          writeAppLocation(pageRef.current?.id ?? null, "replace");
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }}
+        onConfirm={() => {
+          if (!session || !joinPrompt?.preview || joinBusy) return;
+          const preview = joinPrompt.preview;
+          const code = joinPrompt.code;
+          setJoinBusy(true);
+          setError("");
+          const done = (id: string, message: string) => {
+            writeActiveTeamId(id);
+            setActiveTeamId(id);
+            setHint(message);
+            writeAppLocation(pageRef.current?.id ?? null, "replace");
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          };
+          const finish = (task: Promise<void>) => {
+            void task
+              .catch((err: unknown) => {
+                setJoinPrompt((current) =>
+                  current ? { ...current, error: err instanceof Error ? err.message : t("team.joinFailed") } : current,
+                );
+              })
+              .finally(() => setJoinBusy(false));
+          };
+          if (preview.alreadyMember) {
+            finish(
+              listTeams(session).then((list) => {
+                if (sessionRef.current !== session) return;
+                setTeams(list);
+                done(preview.id, t("team.joinAlready"));
+              }),
+            );
+            return;
+          }
+          finish(
+            joinTeam(session, code).then(async (joined) => {
+              if (sessionRef.current !== session) return;
+              const list = await listTeams(session);
+              if (sessionRef.current !== session) return;
+              setTeams(list);
+              done(joined.id, t("team.joined"));
+            }),
+          );
+        }}
+      />
       <Dialog open={inviteTeam !== null} onOpenChange={(open) => !open && setInviteTeam(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("team.inviteMembers")}</DialogTitle>
             <DialogDescription>{t("team.inviteHint")}</DialogDescription>
           </DialogHeader>
-          <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 font-mono text-sm tracking-[0.2em]">{inviteTeam?.code ?? "—"}</p>
-            {inviteTeam?.code ? (
-              <Button type="button" variant="outline" onClick={() => void copyText(inviteTeam.code ?? "")}>
-                {t("team.copyCode")}
-              </Button>
-            ) : null}
-          </div>
+          <TeamInviteFields
+            code={inviteTeam?.code ?? null}
+            refreshing={inviteRefreshing}
+            onRefresh={
+              session && inviteTeam
+                ? () => {
+                    const current = inviteTeam;
+                    setInviteRefreshing(true);
+                    setError("");
+                    void refreshTeamCode(session, current.id)
+                      .then((next) => {
+                        setInviteTeam(next);
+                        setTeams((list) => list.map((item) => (item.id === next.id ? { ...item, code: next.code } : item)));
+                      })
+                      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("team.refreshFailed")))
+                      .finally(() => setInviteRefreshing(false));
+                  }
+                : undefined
+            }
+          />
         </DialogContent>
       </Dialog>
       {session && sharePageId ? (
