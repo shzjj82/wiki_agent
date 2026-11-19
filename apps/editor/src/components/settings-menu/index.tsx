@@ -18,13 +18,9 @@ type Props = {
   onChangePassword: () => void;
   onCreateTeam: () => void;
   onJoinTeam: () => void;
-  onToggleTeamMode: () => void;
-  teamMode: boolean;
-  canSwitchTeam: boolean;
-  onManageTeam: () => void;
 };
 
-/** 只在登录后出现：创建/加入团队、切换团队模式、同步、改密码、退出 */
+/** 只在登录后出现：创建/加入团队、同步、改密码、退出 */
 export function SettingsMenu({
   label,
   settings,
@@ -33,10 +29,6 @@ export function SettingsMenu({
   onChangePassword,
   onCreateTeam,
   onJoinTeam,
-  onToggleTeamMode,
-  teamMode,
-  canSwitchTeam,
-  onManageTeam,
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -79,30 +71,6 @@ export function SettingsMenu({
         >
           {t("team.joinTeam")}
         </button>
-        <button
-          type="button"
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-          disabled={!canSwitchTeam}
-          title={canSwitchTeam ? undefined : t("team.switchDisabled")}
-          onClick={() => {
-            setOpen(false);
-            onToggleTeamMode();
-          }}
-        >
-          {teamMode ? t("team.personalMode") : t("team.switchMode")}
-        </button>
-        {teamMode ? (
-          <button
-            type="button"
-            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"
-            onClick={() => {
-              setOpen(false);
-              onManageTeam();
-            }}
-          >
-            {t("team.manageTeam")}
-          </button>
-        ) : null}
         <PopoverSeparator />
         <CheckUpdateSlot>
           {(check) => (

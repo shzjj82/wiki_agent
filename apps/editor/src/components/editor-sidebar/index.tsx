@@ -61,10 +61,6 @@ type Props = {
   onSyncSettings: (settings: SyncSettings) => void;
   onLogout: () => void;
   onChangePassword: () => void;
-  teamMode: boolean;
-  canSwitchTeam: boolean;
-  onManageTeam: () => void;
-  onToggleTeamMode: () => void;
   onWriteTodo: (todo: NotifyTodo) => Promise<void>;
   updateAvailable: boolean;
   onOpenUpdate: () => void;
@@ -105,10 +101,6 @@ export function EditorSidebar({
   onSyncSettings,
   onLogout,
   onChangePassword,
-  teamMode,
-  canSwitchTeam,
-  onManageTeam,
-  onToggleTeamMode,
   onWriteTodo,
   updateAvailable,
   onOpenUpdate,
@@ -215,10 +207,6 @@ export function EditorSidebar({
                 onChangePassword={onChangePassword}
                 onCreateTeam={onCreateTeam ?? (() => undefined)}
                 onJoinTeam={onJoinTeam ?? (() => undefined)}
-                teamMode={teamMode}
-                canSwitchTeam={canSwitchTeam}
-                onManageTeam={onManageTeam}
-                onToggleTeamMode={onToggleTeamMode}
               />
             </div>
             <NotifyBell session={session} onWriteTodo={onWriteTodo} onOpenPage={onOpenPage} />

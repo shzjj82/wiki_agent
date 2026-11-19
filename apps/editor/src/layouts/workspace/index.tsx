@@ -316,16 +316,6 @@ function WorkspaceShell() {
           onSyncSettings={sync.updateSettings}
           onLogout={logout}
           onChangePassword={() => setPasswordOpen(true)}
-          teamMode={activeTeamId !== null}
-          canSwitchTeam={teams.length > 0}
-          onManageTeam={() => {
-            const current = teams.find((team) => team.id === activeTeamId);
-            if (current) setDetailTeam(current);
-          }}
-          onToggleTeamMode={() => {
-            if (teams.length === 0) return;
-            chooseActiveTeam(activeTeamId ? null : teams[0].id);
-          }}
           onWriteTodo={writeTodoPage}
           updateAvailable={appUpdate.available}
           onOpenUpdate={() => appUpdate.openAvailable()}

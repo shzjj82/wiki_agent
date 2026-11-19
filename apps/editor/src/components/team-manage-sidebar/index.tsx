@@ -6,10 +6,13 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TeamInfo } from "@/store/teamStore";
 import type { RemoteSession } from "@/store/remoteStore";
-import { TeamDetailsTab } from "./details";
+import { TEAM_DETAILS_FORM, TeamDetailsTab } from "./details";
 import { TeamMembersTab } from "./members";
 import { TeamRolesTab } from "./roles";
 import { useTeamDetail } from "./useTeamDetail";
+
+/** 下划线式 tab：贴住标题行底边，不撑开宽度 */
+const LINE_TAB = "h-full flex-none rounded-none px-0.5 group-data-horizontal/tabs:after:bottom-0";
 
 type Props = {
   session: RemoteSession;
@@ -24,6 +27,7 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
   const detail = useTeamDetail(session, team, onChanged);
   if (!detail.shown) return null;
   const shown = detail.shown;
+  const dirty = detail.name.trim() !== shown.name || detail.description.trim() !== (shown.description ?? "");
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
@@ -36,14 +40,32 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
           </Button>
         </header>
         <Tabs value={detail.tab} onValueChange={detail.setTab} className="min-h-0 flex-1 gap-4 overflow-auto p-5">
-          <div className="flex items-center gap-3">
-            <TabsList className="shrink-0">
-              <TabsTrigger value="details">{t("team.manageTeam")}</TabsTrigger>
-              <TabsTrigger value="members">{t("team.members")}</TabsTrigger>
-              <TabsTrigger value="roles">{t("team.roleInfo")}</TabsTrigger>
+          <div className="flex items-center gap-3 border-b border-border">
+            <TabsList variant="line" className="-mb-px h-10 shrink-0 gap-5 p-0">
+              <TabsTrigger value="details" className={LINE_TAB}>{t("team.manageTeam")}</TabsTrigger>
+              <TabsTrigger value="members" className={LINE_TAB}>{t("team.members")}</TabsTrigger>
+              <TabsTrigger value="roles" className={LINE_TAB}>{t("team.roleInfo")}</TabsTrigger>
             </TabsList>
+            {detail.tab === "details" && detail.canEdit ? (
+              <div className="ml-auto flex items-center gap-2">
+                {detail.editing ? (
+                  <>
+                    <Button type="button" variant="ghost" size="sm" disabled={detail.busy} onClick={() => detail.toggleEditing(false)}>
+                      {t("common.cancel")}
+                    </Button>
+                    <Button type="submit" form={TEAM_DETAILS_FORM} size="sm" disabled={detail.busy || !dirty || !detail.name.trim()}>
+                      {t("team.saveDetails")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" onClick={() => detail.toggleEditing(true)}>
+                    {t("team.editDetails")}
+                  </Button>
+                )}
+              </div>
+            ) : null}
             {detail.tab === "members" ? (
-              <div className="relative ml-auto min-w-36 flex-1 sm:max-w-56">
+              <div className="relative ml-auto mb-1 min-w-36 flex-1 sm:max-w-56">
                 <Search size={14} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={detail.query}
@@ -58,13 +80,13 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
               </div>
             ) : null}
           </div>
-          <TabsContent value="details" className="grid h-auto flex-none content-start items-start gap-5">
+          <TabsContent value="details" className="flex min-h-0 flex-col gap-3">
             <TeamDetailsTab
               session={session}
               shown={shown}
               name={detail.name}
               description={detail.description}
-              canEdit={detail.canEdit}
+              editing={detail.editing}
               busy={detail.busy}
               error={detail.error}
               onName={detail.setName}
@@ -73,6 +95,7 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
               onBusy={detail.setBusy}
               onError={detail.setError}
               onChanged={onChanged}
+              onSaved={() => detail.toggleEditing(false)}
             />
           </TabsContent>
           <TabsContent value="members" className="grid h-auto flex-none content-start items-start gap-3">

@@ -24,6 +24,7 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState("details");
+  const [editing, setEditing] = useState(false);
   const canEdit = Boolean(shown && canManageTeam(shown.role));
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
     setQuery("");
     setPage(1);
     setTab("details");
+    setEditing(false);
     let alive = true;
     void loadTeam(session, team.id)
       .then((detail) => {
@@ -74,6 +76,16 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
       .finally(() => setBusy(false));
   }
 
+  /** 关掉编辑开关时丢弃没保存的改动 */
+  function toggleEditing(on: boolean) {
+    setEditing(on);
+    if (!on && shown) {
+      setName(shown.name);
+      setDescription(shown.description ?? "");
+      setError("");
+    }
+  }
+
   return {
     members,
     shown,
@@ -92,6 +104,8 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
     tab,
     setTab,
     canEdit,
+    editing: canEdit && editing,
+    toggleEditing,
     visible,
     filteredCount: filtered.length,
     currentPage,
