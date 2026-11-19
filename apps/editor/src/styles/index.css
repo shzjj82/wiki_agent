@@ -95,29 +95,6 @@
   }
 }
 
-/* 手机横屏：页面保持竖屏尺寸，不改成横屏布局。平板短边更高，进不了这条。 */
-body.phone-lock-ccw,
-body.phone-lock-cw {
-  position: fixed;
-  overflow: hidden;
-  width: 100vh;
-  height: 100vw;
-  margin: 0;
-  transform-origin: top left;
-}
-
-body.phone-lock-ccw {
-  top: 100vh;
-  left: 0;
-  transform: rotate(-90deg);
-}
-
-body.phone-lock-cw {
-  top: 0;
-  left: 100vw;
-  transform: rotate(90deg);
-}
-
 .codex-editor,
 .ce-block,
 .ce-paragraph,

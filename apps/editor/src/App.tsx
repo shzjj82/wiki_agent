@@ -686,9 +686,13 @@ function AppMain() {
     window.clearTimeout(saveTimer.current);
   }
 
-  async function openPage(id: string, history: "push" | "replace" | "none" = "push") {
+  /** 空白团队页盖在当前文档上。等新页面进状态后再揭开，避免先闪出上一页再变成空白页。 */
+  function revealDocument() {
     setTeamsListOpen(false);
     setEmptyTeamId(null);
+  }
+
+  async function openPage(id: string, history: "push" | "replace" | "none" = "push") {
     setSidebarOpen(false);
     if (history !== "none") {
       writeAppLocation(id, pageRef.current?.id === id ? "replace" : history);
@@ -702,10 +706,12 @@ function AppMain() {
       const loaded = loadLocal(id);
       if (!loaded) {
         setPage(null);
+        revealDocument();
         return;
       }
       const healed = withLivePageLinks(loaded, listLocal());
       setPage(healed);
+      revealDocument();
       if (healed !== loaded) {
         saveLocal(healed);
         setNodes(listLocal());
@@ -723,6 +729,7 @@ function AppMain() {
     const healed = withLivePageLinks(loaded, list);
     setNodes(list);
     setPage(healed);
+    revealDocument();
     if (healed !== loaded) {
       void saveRemote(session, healed).catch(() => undefined);
     }
@@ -762,8 +769,6 @@ function AppMain() {
   }
 
   async function createPage(parentId: string | null, teamId?: string | null) {
-    setTeamsListOpen(false);
-    setEmptyTeamId(null);
     setError("");
     try {
       const inherited = parentId ? (nodes.find((node) => node.id === parentId)?.teamId ?? null) : null;
@@ -783,6 +788,7 @@ function AppMain() {
       } else {
         refreshLocal(created.id, "push");
       }
+      revealDocument();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("app.failedToCreatePage"));
     }
