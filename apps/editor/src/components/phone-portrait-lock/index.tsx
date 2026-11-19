@@ -13,6 +13,15 @@ function landscape() {
   return window.matchMedia("(orientation: landscape)").matches;
 }
 
+/** 工程里的 DOM 类型还没有 lock，运行时再判断。 */
+type LockableOrientation = ScreenOrientation & {
+  lock?: (orientation: "portrait") => Promise<void>;
+};
+
+function lockableOrientation(): LockableOrientation | null {
+  return (screen.orientation as LockableOrientation | undefined) ?? null;
+}
+
 /** 系统允许时直接锁竖屏。锁不住（如 iPhone 浏览器）时把页面留在竖屏坐标系，不切成横屏布局。 */
 function sync() {
   const root = document.body;
@@ -25,14 +34,12 @@ function sync() {
 }
 
 function lockPortrait() {
-  if (!isPhone() || !screen.orientation?.lock) {
+  const orientation = lockableOrientation();
+  if (!isPhone() || !orientation?.lock) {
     sync();
     return;
   }
-  screen.orientation
-    .lock("portrait")
-    .then(sync)
-    .catch(sync);
+  orientation.lock("portrait").then(sync).catch(sync);
 }
 
 /** 只限制手机。平板和桌面不锁方向。 */
