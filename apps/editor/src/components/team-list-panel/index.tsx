@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createTeam, joinTeam, type TeamInfo, type TeamRole } from "@/store/teamStore";
+import { createTeam, joinTeam, type TeamInfo } from "@/store/teamStore";
 import type { RemoteSession } from "@/store/remoteStore";
+import { formatTeamTime, roleHint, roleLabel } from "@/components/team/text";
 
 type Props = {
   session: RemoteSession;
@@ -12,29 +13,6 @@ type Props = {
   onChanged: () => void;
   onManage: (team: TeamInfo) => void;
 };
-
-function roleKey(role: TeamRole): "team.roleOwner" | "team.roleDeveloper" | "team.roleUser" {
-  if (role === "owner") return "team.roleOwner";
-  if (role === "developer") return "team.roleDeveloper";
-  return "team.roleUser";
-}
-
-function roleHint(role: TeamRole): "team.roleOwnerHint" | "team.roleDeveloperHint" | "team.roleUserHint" {
-  if (role === "owner") return "team.roleOwnerHint";
-  if (role === "developer") return "team.roleDeveloperHint";
-  return "team.roleUserHint";
-}
-
-function formatTime(value: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
 
 export function TeamListPanel({ session, teams, onChanged, onManage }: Props) {
   const { t } = useTranslation();
@@ -112,11 +90,11 @@ export function TeamListPanel({ session, teams, onChanged, onManage }: Props) {
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                     {team.description?.trim() || t("team.noDescription")}
                   </p>
-                  <p className="mt-2 text-xs text-foreground">{t(roleKey(team.role))}</p>
+                  <p className="mt-2 text-xs text-foreground">{t(roleLabel(team.role))}</p>
                   <p className="text-xs leading-5 text-muted-foreground">{t(roleHint(team.role))}</p>
                   {team.updatedAt ? (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {t("team.updatedAt")} {formatTime(team.updatedAt)}
+                      {t("team.updatedAt")} {formatTeamTime(team.updatedAt, false)}
                     </p>
                   ) : null}
                 </div>

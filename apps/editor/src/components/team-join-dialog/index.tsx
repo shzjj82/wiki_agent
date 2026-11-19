@@ -1,30 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { TeamPreview, TeamRole } from "@/store/teamStore";
-
-function formatTime(value: string): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function roleLabel(role: TeamRole): "team.roleOwner" | "team.roleDeveloper" | "team.roleUser" {
-  if (role === "owner") return "team.roleOwner";
-  if (role === "developer") return "team.roleDeveloper";
-  return "team.roleUser";
-}
-
-function roleHint(role: TeamRole): "team.roleOwnerHint" | "team.roleDeveloperHint" | "team.roleUserHint" {
-  if (role === "owner") return "team.roleOwnerHint";
-  if (role === "developer") return "team.roleDeveloperHint";
-  return "team.roleUserHint";
-}
+import { formatTeamTime, roleHint, roleLabel } from "@/components/team/text";
+import type { TeamPreview } from "@/store/teamStore";
 
 function Cell({ label, children, wide = false }: { label: string; children: string; wide?: boolean }) {
   return (
@@ -68,8 +46,8 @@ export function TeamJoinDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Cell label={t("team.name")}>{preview.name}</Cell>
             <Cell label={t("team.members")}>{t("team.memberCount", { count: preview.memberCount })}</Cell>
-            <Cell label={t("team.registeredAt")}>{formatTime(preview.createdAt)}</Cell>
-            <Cell label={t("team.updatedAt")}>{formatTime(preview.updatedAt)}</Cell>
+            <Cell label={t("team.registeredAt")}>{formatTeamTime(preview.createdAt, false, "—")}</Cell>
+            <Cell label={t("team.updatedAt")}>{formatTeamTime(preview.updatedAt, false, "—")}</Cell>
             <Cell label={t("team.about")} wide>
               {preview.description?.trim() || t("team.noDescription")}
             </Cell>

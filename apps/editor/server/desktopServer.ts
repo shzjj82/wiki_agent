@@ -38,7 +38,7 @@ const MIME: Record<string, string> = {
  *   3. /downloads/*                         → 410 Gone（安装包已迁到 OSS，不再由本机托管）
  *   4. 别名 308 跳转                         → /download、/download.html、/downloads
  *   5. /                                     → dist/download.html（下载宣传页 = 站点首页）
- *   6. /app、/app/*、/markdown、/markdown/*  → index.html（编辑器 SPA，含深链回落）
+ *   6. /app、/app/*、/login、/s、/s/*       → index.html（编辑器 SPA，含深链回落）
  *   7. dist 里真实存在的文件                  → 直接返回（带缓存头）
  *   8. 其他                                  → 404
  *
@@ -46,11 +46,9 @@ const MIME: Record<string, string> = {
  * 服务器只负责发页面和 /version.json，机器上不存大文件。
  * 编辑器不再占用根路径：根是给人的落地页，工具在 /app 下面。
  * 桌面版 WebView 也加载 /app（见 src-tauri/src/lib.rs）。
- * /markdown 与 /app/markdown 打开 Markdown 导入页。
  */
 const HOME_PAGE = "download.html";
 const APP_PREFIX = "/app";
-const MARKDOWN_PREFIX = "/markdown";
 const VERSION_PATH = "/version.json";
 
 /** 旧地址 / 常见手误 → canonical 路径 */
@@ -66,8 +64,7 @@ function isSpaPath(pathname: string): boolean {
   return (
     pathname === APP_PREFIX ||
     pathname.startsWith(`${APP_PREFIX}/`) ||
-    pathname === MARKDOWN_PREFIX ||
-    pathname.startsWith(`${MARKDOWN_PREFIX}/`) ||
+    pathname === "/login" ||
     pathname === "/s" ||
     pathname.startsWith("/s/")
   );
@@ -436,7 +433,7 @@ function serveStatic(distRoot: string, req: IncomingMessage, res: ServerResponse
     return;
   }
 
-  // 3) 编辑器 SPA：/app、/markdown 及子路径一律回到入口，前端自己的深链刷新也能用
+  // 3) 编辑器 SPA：/app、/login、/s 及子路径一律回到入口，前端自己的深链刷新也能用
   if (isSpaPath(pathname)) {
     const app = pick("/index.html");
     if (app) {

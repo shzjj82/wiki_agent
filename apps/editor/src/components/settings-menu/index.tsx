@@ -36,7 +36,6 @@ export function SettingsMenu({
   onToggleTeamMode,
   teamMode,
   canSwitchTeam,
-  canManageTeam,
   onManageTeam,
 }: Props) {
   const { t } = useTranslation();
@@ -92,7 +91,7 @@ export function SettingsMenu({
         >
           {teamMode ? t("team.personalMode") : t("team.switchMode")}
         </button>
-        {canManageTeam ? (
+        {teamMode ? (
           <button
             type="button"
             className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted"

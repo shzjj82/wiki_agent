@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { EditorJsDocument } from "@myblog/shared";
 import { useTranslation } from "react-i18next";
+import { useParams } from "react-router";
 import { BlockEditor } from "@/components/block-editor";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { Button } from "@/components/ui/button";
 import { useVisualViewport } from "@/lib/useKeyboardInset";
 import { useIsMobile } from "@/lib/useMediaQuery";
-import { ShareAccess } from "@/components/shared-page/ShareAccess";
+import { ShareAccess } from "@/views/shared/ShareAccess";
 import { viewShare, type SharedPageNode, type SharedPageView } from "@/store/shareStore";
 
 const iconProps = { size: 16 };
@@ -34,7 +35,11 @@ function flattenShare(node: SharedPageNode, parentId: string | null, out: ShareP
   for (const child of node.children ?? []) flattenShare(child, id, out, seq);
 }
 
-export function SharedPage({ token }: { token: string }) {
+const SHARE_TOKEN = /^[A-Za-z0-9_-]+$/;
+
+export function SharedView() {
+  const raw = useParams().token ?? "";
+  const token = SHARE_TOKEN.test(raw) ? raw : "";
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const viewport = useVisualViewport();

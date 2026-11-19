@@ -12,7 +12,7 @@ import {
   type ShareFavorite,
 } from "@/store/shareStore";
 import { loadSession, loginRemote, logoutRemote, registerRemote, type RemoteSession } from "@/store/remoteStore";
-import { ShareDownloadGuide } from "@/components/shared-page/ShareDownloadGuide";
+import { ShareDownloadGuide } from "@/views/shared/ShareDownloadGuide";
 
 const iconProps = { size: 16 };
 
