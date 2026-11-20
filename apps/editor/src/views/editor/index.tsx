@@ -8,6 +8,7 @@ import { FileViewer } from "@/components/file-viewer";
 import { WikiChat } from "@/components/wiki-chat";
 import { WorkDesk } from "@/components/work-desk";
 import { ImportDialog } from "@/components/import-dialog";
+import { ConflictDialog } from "@/components/conflict-dialog";
 import { TodoDetailDialog, type TodoDetailTarget } from "@/components/notify-bell/TodoDetailDialog";
 import { isDesktopApp } from "@/lib/ai/skills";
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,8 @@ export function EditorView() {
   const { refreshLocal, refreshRemote } = usePageCatalog({ pageRef, sessionRef, setNodes, setPage });
   const {
     openPageRef,
+    conflict,
+    resolveConflict,
     importState,
     viewing,
     setViewing,
@@ -519,6 +522,7 @@ export function EditorView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConflictDialog conflict={conflict} onResolve={(choices, ai) => void resolveConflict(choices, ai)} />
       <Dialog open={pendingDeleteId !== null} onOpenChange={(open) => !open && cancelRemove()}>
         <DialogContent>
           <DialogHeader>

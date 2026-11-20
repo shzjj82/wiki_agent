@@ -51,7 +51,7 @@ function emitSession(session: RemoteSession | null): void {
   }
 }
 
-function wikiHeaders(extra?: Record<string, string>): Record<string, string> {
+export function wikiHeaders(extra?: Record<string, string>): Record<string, string> {
   return {
     Accept: "application/json",
     "X-App-Code": WIKI_APP_CODE,

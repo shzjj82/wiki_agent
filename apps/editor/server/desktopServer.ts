@@ -4,6 +4,7 @@ import https from "node:https";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Duplex } from "node:stream";
+import { handleMergeConflict } from "./mergeConflict.ts";
 import { handleWorkBridge } from "./workBridge.ts";
 
 const MIME: Record<string, string> = {
@@ -496,6 +497,9 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
+  if (await handleMergeConflict(req, res, gatewayBase)) {
+    return;
+  }
   if (await handleWorkBridge(req, res)) {
     return;
   }

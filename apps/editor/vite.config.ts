@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from "vite";
+import { handleMergeConflict } from "./server/mergeConflict.ts";
 import { handleWorkBridge } from "./server/workBridge.ts";
 
 const editorRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -40,7 +41,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     clearScreen: false,
-    plugins: [react(), tailwindcss(), workBridgePlugin()],
+    plugins: [react(), tailwindcss(), mergePlugin(gatewayBase), workBridgePlugin()],
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -97,6 +98,26 @@ function vendorChunk(id: string): string | undefined {
     }
   }
   return undefined;
+}
+
+function mergePlugin(gatewayBase: string): Plugin {
+  return {
+    name: "wiki-merge-conflict",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        void handleMergeConflict(req, res, gatewayBase).then((hit) => {
+          if (!hit) next();
+        });
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        void handleMergeConflict(req, res, gatewayBase).then((hit) => {
+          if (!hit) next();
+        });
+      });
+    },
+  };
 }
 
 function workBridgePlugin(): Plugin {

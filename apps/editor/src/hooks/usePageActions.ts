@@ -28,8 +28,15 @@ import { bindTodoPage, pageIdFromTodo, rememberTodoPage, todoNeedsPageBind, type
 import { createRemote, listRemote, loadRemote, removeRemote, reparentRemote, saveRemote, type RemoteSession } from "@/store/remoteStore";
 import { canWriteTeam, writeActiveTeamId } from "@/store/teamStore";
 import { promoteAttachment, promoteDocument, saveAttachment, type AttachmentData } from "@/store/fileStore";
+import { mergeDocuments, sameDocument, type ConflictChoice, type MergeResult } from "@/lib/document/merge";
 
 type HistoryMode = "push" | "replace" | "none";
+/** 服务端上我们最后见过的那一版，三方合并的 base */
+type BaseVersion = { id: string; updatedAt: string; body: EditorJsDocument };
+export type SaveConflict = { mine: EditorPage; latest: EditorPage; result: MergeResult };
+
+/** 团队文章没有输入时多久看一次远端 */
+const PULL_MS = 20_000;
 type PendingDrop = { file: File; index: number | null };
 type ViewingFile = { data: AttachmentData; replace: (next: AttachmentData) => void };
 type FileDeleteAsk = { name: string; resolve: (ok: boolean) => void };
@@ -74,6 +81,11 @@ export function usePageActions({
   const [reveal, setReveal] = useState<{ text: string; nonce: number } | null>(null);
   const [editorEpoch, setEditorEpoch] = useState(0);
   const saveTimer = useRef(0);
+  const baseRef = useRef<BaseVersion | null>(null);
+  /** 保存串行执行，后一次要拿前一次保存后的 base 做比较 */
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+  const [conflict, setConflict] = useState<SaveConflict | null>(null);
+  const conflictRef = useRef<SaveConflict | null>(null);
   const openPageRef = useRef<(id: string, history?: HistoryMode) => Promise<void>>(async () => undefined);
 
   /** 退出或换号后，还在路上的云端响应不能再写回界面 */
@@ -124,7 +136,37 @@ export function usePageActions({
     await saveRemote(active, { ...parent, body });
   }
 
-  async function persist(next: EditorPage): Promise<boolean> {
+  useEffect(() => {
+    if (page && session && !draftDirtyRef.current) {
+      baseRef.current = { id: page.id, updatedAt: page.updatedAt, body: page.body };
+    }
+    // draftDirtyRef 是 ref，只在 page 换了的时候看一眼
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, session]);
+
+  /** 把远端版本换进编辑器；正在输入时编辑器会重建，光标会丢，所以只在合并或空闲时调用 */
+  function showRemote(next: EditorPage, dirty: boolean) {
+    draftDirtyRef.current = dirty;
+    pageRef.current = next;
+    setPage(next);
+    setEditorEpoch((value) => value + 1);
+    patchSidebarNode(next);
+  }
+
+  function persist(next: EditorPage): Promise<boolean> {
+    const run = saveChain.current.then(() => persistNow(next));
+    saveChain.current = run.catch(() => undefined);
+    return run;
+  }
+
+  /**
+   * 团队文章保存前先看远端有没有被别人改过（updatedAt 变了且正文不同）：
+   * 没改直接存；改了就按块三方合并，没冲突自动合并后再存，有冲突停下来让人选。
+   */
+  async function persistNow(next: EditorPage): Promise<boolean> {
+    if (conflictRef.current) {
+      return false;
+    }
     const viewingId = pageRef.current?.id;
     try {
       if (!session) {
@@ -136,12 +178,47 @@ export function usePageActions({
         }
         patchSidebarNode(saved);
       } else {
-        const { body } = await promoteDocument(session, next.body);
-        const saved = await saveRemote(session, { ...next, body });
+        let { body } = await promoteDocument(session, next.body);
+        let merged = false;
+        const base = baseRef.current;
+        if (next.teamId && base?.id === next.id) {
+          const latest = await loadRemote(session, next.id);
+          if (stale(session)) {
+            return true;
+          }
+          if (latest.updatedAt !== base.updatedAt && !sameDocument(latest.body, base.body)) {
+            const result = mergeDocuments(base.body, body, latest.body);
+            if (result.conflicts.length > 0) {
+              window.clearTimeout(saveTimer.current);
+              const found = { mine: { ...next, body }, latest, result };
+              conflictRef.current = found;
+              setConflict(found);
+              setHint("");
+              return false;
+            }
+            body = result.build();
+            merged = true;
+          }
+        }
+        const saved = await saveRemote(session, { ...next, body, title: titleFromBody(body) });
         if (saved.parentId && pageRef.current?.id !== saved.parentId) {
           await mirrorParentLink(session, saved).catch(() => undefined);
         }
         if (stale(session)) {
+          return true;
+        }
+        baseRef.current = { id: saved.id, updatedAt: saved.updatedAt, body: saved.body };
+        if (pageRef.current?.id === next.id && merged) {
+          // 存的这段时间里可能又输入了，把这部分叠到合并结果上再放回编辑器
+          const typed = editorRef.current ? ((await editorRef.current.save()) as EditorJsDocument) : next.body;
+          const shown = mergeDocuments(next.body, typed, saved.body).build();
+          const dirty = !sameDocument(shown, saved.body);
+          showRemote({ ...saved, body: shown, title: titleFromBody(shown) }, dirty);
+          if (dirty) {
+            onEdit(shown);
+          }
+          setHint(t("collab.merged"));
+          setError("");
           return true;
         }
         if (pageRef.current?.id === next.id) {
@@ -311,6 +388,9 @@ export function usePageActions({
       setNodes((prev) => prev.map((node) => (node.id === next.id ? { ...node, title: next.title } : node)));
     }
     window.clearTimeout(saveTimer.current);
+    if (conflictRef.current) {
+      return;
+    }
     setHint((prev) => (prev === t("app.saving") ? prev : t("app.saving")));
     saveTimer.current = window.setTimeout(() => void persist(next), 700);
   }
@@ -591,8 +671,84 @@ export function usePageActions({
     }
   }
 
+  /** 冲突时选定一种取法：以对方的最新版为 base 重新保存，期间对方又改了会再合并一次 */
+  async function resolveConflict(choices: Record<string, ConflictChoice>, ai: Record<string, EditorJsBlock> = {}) {
+    const found = conflictRef.current;
+    if (!found) {
+      return;
+    }
+    conflictRef.current = null;
+    setConflict(null);
+    const body = found.result.build(choices, "ours", ai);
+    const next = { ...found.mine, body, title: titleFromBody(body) };
+    baseRef.current = { id: found.latest.id, updatedAt: found.latest.updatedAt, body: found.latest.body };
+    const viewing = pageRef.current?.id === next.id;
+    if (sameDocument(body, found.latest.body)) {
+      if (viewing) {
+        showRemote(found.latest, false);
+      }
+      setHint(t("app.saved"));
+      return;
+    }
+    if (viewing) {
+      showRemote(next, true);
+    }
+    setHint(t("app.saving"));
+    await persist(next);
+  }
+
+  /** 团队文章：没有未保存的改动、也没在编辑器里输入时，切回窗口或定时拉一次远端，有新版本就换进来 */
+  useEffect(() => {
+    const id = page?.id;
+    if (!session || !id || !page?.teamId) {
+      return;
+    }
+    let busy = false;
+    const pull = async () => {
+      const base = baseRef.current;
+      if (busy || document.hidden || conflictRef.current || draftDirtyRef.current || base?.id !== id) {
+        return;
+      }
+      if (!readOnlyRef.current && document.activeElement?.closest(".notion-editor")) {
+        return;
+      }
+      busy = true;
+      const latest = await loadRemote(session, id).catch(() => null);
+      busy = false;
+      if (!latest || stale(session) || draftDirtyRef.current || pageRef.current?.id !== id || baseRef.current !== base) {
+        return;
+      }
+      if (latest.updatedAt === base.updatedAt) {
+        return;
+      }
+      if (sameDocument(latest.body, base.body)) {
+        baseRef.current = { ...base, updatedAt: latest.updatedAt };
+        return;
+      }
+      showRemote(latest, false);
+      setHint(t("collab.pulled"));
+    };
+    const onVisible = () => {
+      if (!document.hidden) {
+        void pull();
+      }
+    };
+    const timer = window.setInterval(() => void pull(), PULL_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+    // 只跟着打开的团队文章走，其余都从 ref 取
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, page?.id, page?.teamId]);
+
   return {
     openPageRef,
+    conflict,
+    resolveConflict,
     importState: { open: importOpen, busy: importBusy, drop: pendingDrop },
     viewing,
     setViewing,
