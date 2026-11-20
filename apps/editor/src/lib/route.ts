@@ -47,6 +47,27 @@ export function appPagePath(pageId: string | null): string {
   return id ? `/app/${encodeURIComponent(id)}` : "/app";
 }
 
+/**
+ * 地址指向一篇不存在的文档时，返回实际打开的页面路径。
+ * 文档还在列表里（正在切换）、邀请链接、以及地址已经一致时，返回 null。
+ */
+export function correctedAppPath(
+  pathname: string,
+  openedPageId: string | null,
+  knownIds: ReadonlySet<string>,
+): string | null {
+  if (joinCodeFromPath(pathname)) {
+    return null;
+  }
+  const requested = readAppLocation(`http://local${pathname}`).pageId;
+  if (!requested || knownIds.has(requested)) {
+    return null;
+  }
+  const wanted = appPagePath(openedPageId);
+  const current = pathname.replace(/\/+$/, "") || "/";
+  return current === wanted ? null : wanted;
+}
+
 type AppNavigator = (to: string, replace: boolean) => void;
 
 let appNavigator: AppNavigator | null = null;

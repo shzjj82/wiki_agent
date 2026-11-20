@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appPagePath, joinCodeFromPath, loginPath, readAppLocation, safeRedirect } from "./route";
+import { appPagePath, correctedAppPath, joinCodeFromPath, loginPath, readAppLocation, safeRedirect } from "./route";
 
 describe("safeRedirect", () => {
   it("keeps in-site paths", () => {
@@ -56,5 +56,21 @@ describe("appPagePath", () => {
     expect(appPagePath("a b")).toBe("/app/a%20b");
     expect(appPagePath(null)).toBe("/app");
     expect(appPagePath("  ")).toBe("/app");
+  });
+});
+
+describe("correctedAppPath", () => {
+  const known = new Set(["real"]);
+
+  it("replaces a missing page with the page that actually opened", () => {
+    expect(correctedAppPath("/app/missing", "real", known)).toBe("/app/real");
+    expect(correctedAppPath("/app/missing/", null, new Set())).toBe("/app");
+  });
+
+  it("leaves a real page, the home address, and invite links alone", () => {
+    expect(correctedAppPath("/app/real", "other", known)).toBeNull();
+    expect(correctedAppPath("/app", null, new Set())).toBeNull();
+    expect(correctedAppPath("/app/join/AB12CD", "real", known)).toBeNull();
+    expect(correctedAppPath("/login", "real", known)).toBeNull();
   });
 });

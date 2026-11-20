@@ -1,10 +1,5 @@
-import { createBrowserRouter, Navigate, useLocation } from "react-router";
+import { createBrowserRouter, redirect } from "react-router";
 import { bindAppNavigator } from "@/lib/route";
-
-function ToAppHome() {
-  const { search } = useLocation();
-  return <Navigate to={{ pathname: "/app", search }} replace />;
-}
 
 const loginView = () => import("@/views/login").then((m) => ({ Component: m.LoginView }));
 const sharedView = () => import("@/views/shared").then((m) => ({ Component: m.SharedView }));
@@ -26,7 +21,13 @@ export const router = createBrowserRouter([
     lazy: () => import("@/layouts/workspace").then((m) => ({ Component: m.WorkspaceLayout })),
     children: [{ path: ":pageId?/:code?", lazy: editorView }],
   },
-  { path: "*", Component: ToAppHome },
+  {
+    path: "*",
+    loader({ request }) {
+      const url = new URL(request.url);
+      return redirect(`/app${url.search}`);
+    },
+  },
 ]);
 
 bindAppNavigator((to, replace) => void router.navigate(to, { replace }));

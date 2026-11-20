@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type EditorJS from "@editorjs/editorjs";
 import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router";
 import type { EditorHistoryApi } from "@/components/block-editor";
 import { EditorSpotlight, type SpotlightAction } from "@/components/editor-spotlight";
 import { EditorWorkspace } from "@/components/editor-workspace";
@@ -22,7 +23,7 @@ import { fileKind } from "@/lib/document/fileKinds";
 import { saveEditor } from "@/lib/document/insertBlocks";
 import { loadSearchDocs, withLiveDocument } from "@/lib/document/search";
 import { flushPendingAttachments } from "@/store/fileStore";
-import { readAppLocation } from "@/lib/route";
+import { correctedAppPath, readAppLocation } from "@/lib/route";
 import { usePageCatalog } from "@/hooks/usePageCatalog";
 import { usePageActions } from "@/hooks/usePageActions";
 import { usePageCommands, useWorkspace } from "@/layouts/workspace/context";
@@ -52,6 +53,9 @@ export function EditorView() {
     openLogin,
     sync,
   } = useWorkspace();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [booted, setBooted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** 移动端编辑器底栏的挂载点：底栏由 BlockEditor 通过 portal 渲染进来，
       占据真实布局空间（在滚动区之后），因此永远不会跟着内容滚动 */
@@ -276,6 +280,8 @@ export function EditorView() {
 
   /** 换号或退出：清掉上一个账号的文档和面板，再按地址重新打开。 */
   useEffect(() => {
+    let alive = true;
+    setBooted(false);
     setPage(null);
     setNodes([]);
     setEmptyTeamId(null);
@@ -284,6 +290,7 @@ export function EditorView() {
     if (!session) {
       ensureLocalPages();
       refreshLocal(readAppLocation().pageId);
+      setBooted(true);
       return;
     }
     void refreshRemote(session, readAppLocation().pageId)
@@ -296,8 +303,22 @@ export function EditorView() {
           setHint(t("attachment.promotedMany", { count: touched.length }));
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setBooted(true);
+      });
+    return () => {
+      alive = false;
+    };
   }, [session, refreshLocal, refreshRemote]);
+
+  /** 文档列表落定后，地址还停在不存在的页面上，就改成实际打开的那一篇。 */
+  useEffect(() => {
+    if (!booted) return;
+    const known = new Set(nodes.map((node) => node.id));
+    const next = correctedAppPath(pathname, page?.id ?? null, known);
+    if (next) navigate(next, { replace: true });
+  }, [booted, nodes, page?.id, pathname, navigate]);
 
   useEffect(() => {
     if (!session) {

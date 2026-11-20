@@ -265,8 +265,7 @@ export function usePageActions({
     if (!session) {
       const loaded = loadLocal(id);
       if (!loaded) {
-        setPage(null);
-        revealDocument();
+        refreshLocal(null, "replace");
         return;
       }
       const healed = withLivePageLinks(loaded, listLocal());
@@ -280,6 +279,10 @@ export function usePageActions({
     }
     const list = await listRemote(session);
     if (stale(session)) {
+      return;
+    }
+    if (!list.some((node) => node.id === id)) {
+      await refreshRemote(session, null, "replace");
       return;
     }
     const loaded = await loadRemote(session, id);

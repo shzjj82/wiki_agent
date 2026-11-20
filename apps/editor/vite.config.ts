@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from "vite";
@@ -7,6 +8,7 @@ import { handleMergeConflict } from "./server/mergeConflict.ts";
 import { handleWorkBridge } from "./server/workBridge.ts";
 
 const editorRoot = path.dirname(fileURLToPath(import.meta.url));
+const appVersion = String(JSON.parse(fs.readFileSync(path.join(editorRoot, "package.json"), "utf8")).version || "");
 /** 与 blog server 共用仓库根 `.env`（GATEWAY_BASE_URL 等） */
 const repoRoot = path.resolve(editorRoot, "../..");
 
@@ -58,6 +60,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: ["VITE_", "TAURI_"],
     define: {
       "import.meta.env.VITE_GATEWAY_BASE_URL": JSON.stringify(browserBase),
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
     },
     server: {
       host: "0.0.0.0",
