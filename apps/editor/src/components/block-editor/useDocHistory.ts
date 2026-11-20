@@ -22,7 +22,19 @@ function same(a: EditorJsDocument | null, b: EditorJsDocument | null): boolean {
   if (!a || !b) {
     return false;
   }
-  return JSON.stringify(a.blocks) === JSON.stringify(b.blocks);
+  const left = a.blocks ?? [];
+  const right = b.blocks ?? [];
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const x = left[index];
+    const y = right[index];
+    if (x === y) continue;
+    if (x.type !== y.type || x.id !== y.id) return false;
+    if (JSON.stringify(x) !== JSON.stringify(y)) return false;
+  }
+  return true;
 }
 
 export type DocHistoryState = {

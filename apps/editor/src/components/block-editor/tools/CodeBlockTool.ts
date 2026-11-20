@@ -16,6 +16,18 @@ function loadHighlighter(): Promise<void> {
   return highlighterLoading;
 }
 
+function fillCodeLine(row: HTMLDivElement, line: string, language: string) {
+  if (!line) {
+    row.textContent = "\u00a0";
+    return;
+  }
+  if (!language || !highlightCode) {
+    row.textContent = line;
+    return;
+  }
+  row.innerHTML = highlightCode(line, language);
+}
+
 type CodeBlockData = {
   code?: string;
   language?: string;
@@ -61,6 +73,19 @@ export class CodeBlockTool implements BlockTool {
   private barHost = document.createElement("div");
   private barRoot: Root | null = null;
   private abort = new AbortController();
+  /** 已经画过的行。打字时只改动到的那几行，其余节点留着 */
+  private lineRows: HTMLDivElement[] = [];
+  private lineCache: string[] = [];
+  private gutterRows: HTMLSpanElement[] = [];
+  private gutterBad = 0;
+  private paintFrame = 0;
+  private layoutFrame = 0;
+  private lintTimer = 0;
+  private paintedLanguage = "";
+  private highlightReady = false;
+  private waitingHighlight = false;
+  private lintKey = "";
+  private lintResult: CodeLint = { ok: true };
 
   constructor({ data, api, readOnly }: BlockToolConstructorOptions<CodeBlockData>) {
     this.api = api;
@@ -74,6 +99,7 @@ export class CodeBlockTool implements BlockTool {
   render() {
     this.abort.abort();
     this.abort = new AbortController();
+    this.cancelScheduled();
     const signal = this.abort.signal;
 
     this.wrapper.className = "cdx-code";
@@ -107,7 +133,7 @@ export class CodeBlockTool implements BlockTool {
         "input",
         () => {
           this.data.code = input.value.replace(/\r\n/g, "\n");
-          this.paint();
+          this.paint("typing");
         },
         { signal },
       );
@@ -143,10 +169,10 @@ export class CodeBlockTool implements BlockTool {
     this.status.hidden = true;
     this.wrapper.append(this.barHost, stage, this.status);
     this.paint();
-    requestAnimationFrame(() => {
-      if (this.wrapper.isConnected) {
-        this.paint();
-      }
+    // 首帧还没布局，错误条的行高要等排完再量一次。不要占用打字用的那一帧。
+    this.layoutFrame = requestAnimationFrame(() => {
+      this.layoutFrame = 0;
+      if (this.wrapper.isConnected) this.paintLint(true);
     });
     return this.wrapper;
   }
@@ -160,6 +186,7 @@ export class CodeBlockTool implements BlockTool {
   }
 
   destroy() {
+    this.cancelScheduled();
     this.barRoot?.unmount();
     this.barRoot = null;
     this.abort.abort();
@@ -237,7 +264,7 @@ export class CodeBlockTool implements BlockTool {
 
   private commit(input: HTMLTextAreaElement) {
     this.data.code = input.value.replace(/\r\n/g, "\n");
-    this.paint();
+    this.paint("typing");
     this.wrapper.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
@@ -284,32 +311,138 @@ export class CodeBlockTool implements BlockTool {
     }
   }
 
-  private paint() {
-    const { code, language } = this.data;
-    const lines = code.split("\n");
-    const rows = (lines.length ? lines : [""]).map((line) => {
-      const row = document.createElement("div");
-      row.className = "cdx-code__line";
-      if (!line) {
-        row.textContent = "\u00a0";
-        return row;
-      }
-      if (!language || language === "plain" || !highlightCode) {
-        row.textContent = line;
-        return row;
-      }
-      row.innerHTML = highlightCode(line, language);
-      return row;
-    });
-    this.pre.replaceChildren(...rows);
-    if (!highlightCode && language && language !== "plain") {
-      void loadHighlighter().then(() => {
-        if (this.pre.isConnected) this.paint();
+  /** 打开和换语言马上画；连续打字合并到下一帧，语法检查再晚一点 */
+  private paint(mode: "now" | "typing" = "now") {
+    if (mode === "typing") {
+      this.requestPaint();
+      return;
+    }
+    this.cancelScheduled();
+    this.paintVisual();
+    this.paintLint();
+  }
+
+  private requestPaint() {
+    if (!this.paintFrame) {
+      this.paintFrame = requestAnimationFrame(() => {
+        this.paintFrame = 0;
+        if (this.pre.isConnected) this.paintVisual();
       });
     }
-    const lint = lintCode(code, language);
+    window.clearTimeout(this.lintTimer);
+    this.lintTimer = window.setTimeout(() => {
+      this.lintTimer = 0;
+      if (this.pre.isConnected) this.paintLint();
+    }, 200);
+  }
+
+  private cancelScheduled() {
+    if (this.paintFrame) {
+      cancelAnimationFrame(this.paintFrame);
+      this.paintFrame = 0;
+    }
+    if (this.layoutFrame) {
+      cancelAnimationFrame(this.layoutFrame);
+      this.layoutFrame = 0;
+    }
+    window.clearTimeout(this.lintTimer);
+    this.lintTimer = 0;
+  }
+
+  private paintVisual() {
+    const { code, language } = this.data;
+    const canHighlight = Boolean(highlightCode && language && language !== "plain");
+    if (!canHighlight && language && language !== "plain" && !this.waitingHighlight) {
+      this.waitingHighlight = true;
+      void loadHighlighter().then(
+        () => {
+          this.waitingHighlight = false;
+          if (!this.pre.isConnected) return;
+          this.paintVisual();
+          this.paintLint();
+        },
+        () => {
+          this.waitingHighlight = false;
+        },
+      );
+    }
+    if (this.paintedLanguage !== language || this.highlightReady !== canHighlight) {
+      this.lineCache = [];
+      this.lineRows = [];
+      this.paintedLanguage = language;
+      this.highlightReady = canHighlight;
+    }
+    const lines = code.split("\n");
+    this.syncLines(lines.length ? lines : [""], canHighlight ? language : "");
+    this.syncGutter(Math.max(lines.length, 1));
+  }
+
+  /** 前后相同的行不动；中间插入或删除只重建那一段 */
+  private syncLines(lines: string[], language: string) {
+    const prev = this.lineCache;
+    let start = 0;
+    while (start < prev.length && start < lines.length && prev[start] === lines[start]) start += 1;
+    let prevEnd = prev.length;
+    let nextEnd = lines.length;
+    while (prevEnd > start && nextEnd > start && prev[prevEnd - 1] === lines[nextEnd - 1]) {
+      prevEnd -= 1;
+      nextEnd -= 1;
+    }
+    if (nextEnd === start && prevEnd === start) return;
+    if (nextEnd - start === prevEnd - start) {
+      for (let index = start; index < nextEnd; index += 1) {
+        fillCodeLine(this.lineRows[index], lines[index], language);
+        this.lineCache[index] = lines[index];
+      }
+      return;
+    }
+    const fresh = lines.slice(start, nextEnd).map((line) => {
+      const row = document.createElement("div");
+      row.className = "cdx-code__line";
+      fillCodeLine(row, line, language);
+      return row;
+    });
+    this.lineRows = [...this.lineRows.slice(0, start), ...fresh, ...this.lineRows.slice(prevEnd)];
+    this.lineCache = [...prev.slice(0, start), ...lines.slice(start, nextEnd), ...prev.slice(prevEnd)];
+    this.pre.replaceChildren(...this.lineRows);
+  }
+
+  private syncGutter(count: number) {
+    if (this.gutterRows.length === count) return;
+    if (this.gutterRows.length < count) {
+      const frag = document.createDocumentFragment();
+      for (let index = this.gutterRows.length; index < count; index += 1) {
+        const span = document.createElement("span");
+        span.textContent = String(index + 1);
+        this.gutterRows.push(span);
+        frag.append(span);
+      }
+      this.gutter.append(frag);
+    } else {
+      for (let index = this.gutterRows.length - 1; index >= count; index -= 1) {
+        this.gutterRows[index].remove();
+      }
+      this.gutterRows.length = count;
+    }
+    if (this.gutterBad > count) {
+      this.markBadLine(0);
+      return;
+    }
+    if (this.gutterBad > 0) this.gutterRows[this.gutterBad - 1]?.classList.add("is-bad");
+  }
+
+  private paintLint(reposition = false) {
+    const { code, language } = this.data;
+    const key = `${language}\0${code}`;
+    if (key === this.lintKey) {
+      if (reposition && !this.lintResult.ok) this.placeFault(this.lintResult.line);
+      return;
+    }
+    this.lintKey = key;
+    this.lintResult = lintCode(code, language);
+    const lint = this.lintResult;
     this.wrapper.classList.toggle("is-invalid", !lint.ok);
-    this.paintGutter(code, lint);
+    this.markBadLine(lint.ok ? 0 : lint.line ?? 0);
     if (!lint.ok) {
       this.status.hidden = false;
       this.status.textContent = lint.line
@@ -323,19 +456,12 @@ export class CodeBlockTool implements BlockTool {
     this.fault.hidden = true;
   }
 
-  private paintGutter(code: string, lint: CodeLint) {
-    const count = Math.max(code.split("\n").length, 1);
-    const badLine = lint.ok ? 0 : lint.line ?? 0;
-    const marks: HTMLSpanElement[] = [];
-    for (let line = 1; line <= count; line += 1) {
-      const span = document.createElement("span");
-      span.textContent = String(line);
-      if (line === badLine) {
-        span.className = "is-bad";
-      }
-      marks.push(span);
-    }
-    this.gutter.replaceChildren(...marks);
+  private markBadLine(line: number) {
+    const next = line > 0 ? line : 0;
+    if (next === this.gutterBad) return;
+    this.gutterRows[this.gutterBad - 1]?.classList.remove("is-bad");
+    if (next > 0) this.gutterRows[next - 1]?.classList.add("is-bad");
+    this.gutterBad = next;
   }
 
   private placeFault(line?: number) {

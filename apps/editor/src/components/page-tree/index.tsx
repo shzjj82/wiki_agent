@@ -52,15 +52,21 @@ function buildTree(nodes: PageNode[]): TreeNode[] {
 }
 
 function blockedIds(nodes: PageNode[], rootId: string): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    const list = children.get(node.parentId);
+    if (list) list.push(node.id);
+    else children.set(node.parentId, [node.id]);
+  }
   const drop = new Set<string>([rootId]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const node of nodes) {
-      if (node.parentId && drop.has(node.parentId) && !drop.has(node.id)) {
-        drop.add(node.id);
-        grew = true;
-      }
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop() as string;
+    for (const child of children.get(id) ?? []) {
+      if (drop.has(child)) continue;
+      drop.add(child);
+      stack.push(child);
     }
   }
   return drop;

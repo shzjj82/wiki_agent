@@ -85,21 +85,39 @@ export function readAllLocal(): EditorPage[] {
   return readPages();
 }
 
+/** 解析结果。localStorage 里的原文没变就直接用，避免每次保存都把全部页面再解析一遍。 */
+let pageMemory: EditorPage[] | null = null;
+let pageRaw: string | null = null;
+
 function readPages(): EditorPage[] {
+  let raw: string | null = null;
   try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw) as EditorPage[];
-    return Array.isArray(parsed) ? parsed : [];
+    raw = localStorage.getItem(LOCAL_KEY);
   } catch {
-    return [];
+    return pageMemory ? pageMemory.slice() : [];
   }
+  if (pageMemory && raw === pageRaw) {
+    return pageMemory;
+  }
+  pageRaw = raw;
+  if (!raw) {
+    pageMemory = [];
+    return pageMemory;
+  }
+  try {
+    const parsed = JSON.parse(raw) as EditorPage[];
+    pageMemory = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    pageMemory = [];
+  }
+  return pageMemory;
 }
 
 function writePages(pages: EditorPage[]): void {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(pages));
+  const raw = JSON.stringify(pages);
+  localStorage.setItem(LOCAL_KEY, raw);
+  pageMemory = pages;
+  pageRaw = raw;
 }
 
 export function titleFromBody(body: EditorJsDocument): string {
@@ -231,15 +249,21 @@ export function saveLocal(page: EditorPage): EditorPage {
 }
 
 function descendantIds(pages: EditorPage[], rootId: string): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const page of pages) {
+    if (!page.parentId) continue;
+    const list = children.get(page.parentId);
+    if (list) list.push(page.id);
+    else children.set(page.parentId, [page.id]);
+  }
   const drop = new Set<string>([rootId]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const page of pages) {
-      if (page.parentId && drop.has(page.parentId) && !drop.has(page.id)) {
-        drop.add(page.id);
-        grew = true;
-      }
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop() as string;
+    for (const child of children.get(id) ?? []) {
+      if (drop.has(child)) continue;
+      drop.add(child);
+      stack.push(child);
     }
   }
   return drop;
@@ -300,17 +324,7 @@ export function reparentLocal(id: string, parentId: string | null): void {
 
 export function removeLocal(id: string): void {
   const pages = ensureLocalPages();
-  const drop = new Set<string>([id]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const page of pages) {
-      if (page.parentId && drop.has(page.parentId) && !drop.has(page.id)) {
-        drop.add(page.id);
-        grew = true;
-      }
-    }
-  }
+  const drop = descendantIds(pages, id);
   writePages(pages.filter((page) => !drop.has(page.id)));
   const queue = readSyncQueue();
   const now = new Date().toISOString();
