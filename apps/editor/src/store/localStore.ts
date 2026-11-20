@@ -90,7 +90,7 @@ let pageMemory: EditorPage[] | null = null;
 let pageRaw: string | null = null;
 
 function readPages(): EditorPage[] {
-  let raw: string | null = null;
+  let raw: string | null;
   try {
     raw = localStorage.getItem(LOCAL_KEY);
   } catch {
