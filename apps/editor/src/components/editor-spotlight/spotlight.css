@@ -139,6 +139,11 @@
   color: var(--foreground, #1c1917);
 }
 
+.editor-spotlight-close:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground, #191919) 30%, transparent);
+}
+
 .editor-spotlight-list {
   margin: 0;
   padding: 8px;

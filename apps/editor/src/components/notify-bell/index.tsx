@@ -433,7 +433,7 @@ function TodoList({
               "group relative flex w-full flex-col overflow-hidden rounded-xl border bg-background pl-4 pr-3 pt-2.5 pb-2 text-left shadow-sm",
               "border-border/55 transition-[box-shadow,border-color] duration-200 ease-out",
               "hover:border-border hover:shadow-md",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "focus-visible:border-foreground/30 focus-visible:outline-none",
               "motion-reduce:transition-none",
             )}
             style={{ animation: "notify-card-in 220ms ease-out backwards", animationDelay: `${Math.min(index, 6) * 35}ms` }}
