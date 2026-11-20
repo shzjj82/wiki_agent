@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Sparkles } from "lucide-react";
 import type { EditorJsBlock } from "@myblog/shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { mergedBlock, suggestMerges } from "@/lib/document/aiMerge";
 import { blockHtml, blockText, highlightHtml } from "@/lib/document/blockView";
 import type { BlockConflict, ConflictChoice, MergeResult } from "@/lib/document/merge";
@@ -16,24 +17,59 @@ type Props = {
   onResolve: (choices: Record<string, ConflictChoice>, aiBlocks: Record<string, EditorJsBlock>) => void;
 };
 
-const MINE_MARK = "rounded-[3px] bg-emerald-400/40 px-0.5 text-emerald-950 dark:bg-emerald-400/30 dark:text-emerald-50";
-const THEIRS_MARK = "rounded-[3px] bg-rose-400/40 px-0.5 text-rose-950 dark:bg-rose-400/30 dark:text-rose-50";
+const MINE_MARK = "rounded-[3px] bg-emerald-100 px-0.5 text-emerald-800 dark:bg-emerald-400/25 dark:text-emerald-100";
+const THEIRS_MARK = "rounded-[3px] bg-rose-100 px-0.5 text-rose-800 dark:bg-rose-400/25 dark:text-rose-100";
 
-/** 未选中是浅色描边，选中是实心，颜色和这一侧的含义一致 */
+/**
+ * 按钮组件悬停会把文字改成近黑。这里把悬停的背景和文字都写成这一侧自己的颜色，
+ * 避免盖掉绿 / 玫瑰 / 琥珀 / 紫。
+ */
 const CHOICE_BUTTON = {
   emerald: {
-    idle: "border-emerald-600/35 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300",
-    on: "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600",
+    idle: "border-emerald-200! bg-emerald-50! text-emerald-800! hover:border-emerald-300! hover:bg-emerald-100! hover:text-emerald-800!",
+    on: "border-emerald-600! bg-emerald-600! text-white! hover:border-emerald-700! hover:bg-emerald-700! hover:text-white!",
   },
   rose: {
-    idle: "border-rose-600/35 text-rose-700 hover:bg-rose-500/10 dark:text-rose-300",
-    on: "border-rose-600 bg-rose-600 text-white hover:bg-rose-600",
+    idle: "border-rose-200! bg-rose-50! text-rose-800! hover:border-rose-300! hover:bg-rose-100! hover:text-rose-800!",
+    on: "border-rose-600! bg-rose-600! text-white! hover:border-rose-700! hover:bg-rose-700! hover:text-white!",
+  },
+  amber: {
+    idle: "border-amber-200! bg-amber-50! text-amber-800! hover:border-amber-300! hover:bg-amber-100! hover:text-amber-800!",
+    on: "border-amber-500! bg-amber-500! text-white! hover:border-amber-600! hover:bg-amber-600! hover:text-white!",
   },
   violet: {
-    idle: "border-violet-600/35 text-violet-700 hover:bg-violet-500/10 dark:text-violet-300",
-    on: "border-violet-600 bg-violet-600 text-white hover:bg-violet-600",
+    idle: "border-violet-200! bg-violet-50! text-violet-800! hover:border-violet-300! hover:bg-violet-100! hover:text-violet-800!",
+    on: "border-violet-600! bg-violet-600! text-white! hover:border-violet-700! hover:bg-violet-700! hover:text-white!",
   },
 } as const;
+
+/** 全部用我的 / 全部用对方的共用一个下拉按钮，选中后套到每一处冲突 */
+function BulkChoice({ value, onChange }: { value: "ours" | "theirs"; onChange: (side: "ours" | "theirs") => void }) {
+  const { t } = useTranslation();
+  const mine = value === "ours";
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className={mine ? CHOICE_BUTTON.emerald.idle : CHOICE_BUTTON.rose.idle}>
+          {mine ? t("collab.useMineAll") : t("collab.useTheirsAll")}
+          <ChevronDown size={14} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="z-[80]">
+        <DropdownMenuItem onSelect={() => onChange("ours")}>
+          <span className="size-1.5 rounded-full bg-emerald-500" />
+          {t("collab.useMineAll")}
+          {mine ? <Check size={14} className="ml-auto text-emerald-700" /> : <span className="ml-auto size-3.5" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onChange("theirs")}>
+          <span className="size-1.5 rounded-full bg-rose-500" />
+          {t("collab.useTheirsAll")}
+          {mine ? <span className="ml-auto size-3.5" /> : <Check size={14} className="ml-auto text-rose-700" />}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /** 保存时和其他成员的修改撞上了：左右分栏对比，点一侧即选用，下面附 AI 综合版 */
 export function ConflictDialog({ conflict, onResolve }: Props) {
@@ -42,7 +78,11 @@ export function ConflictDialog({ conflict, onResolve }: Props) {
       <DialogContent
         className="grid max-h-[88vh] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 p-0 sm:max-w-4xl"
         onEscapeKeyDown={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot='dropdown-menu-content']")) return;
+          event.preventDefault();
+        }}
       >
         {conflict ? <ConflictBody key={conflict.latest.updatedAt} conflict={conflict} onResolve={onResolve} /> : null}
       </DialogContent>
@@ -54,6 +94,7 @@ function ConflictBody({ conflict, onResolve }: { conflict: SaveConflict; onResol
   const { t } = useTranslation();
   const conflicts = conflict.result.conflicts;
   const [choices, setChoices] = useState<Record<string, ConflictChoice>>({});
+  const [bulk, setBulk] = useState<"ours" | "theirs">("ours");
   const [previewing, setPreviewing] = useState(false);
   const [suggestions, setSuggestions] = useState<(string | null)[] | null>(null);
   const [aiError, setAiError] = useState(false);
@@ -73,7 +114,10 @@ function ConflictBody({ conflict, onResolve }: { conflict: SaveConflict; onResol
 
   const preview = useMemo(() => buildAiPreview(conflict.result, conflicts, suggestions), [conflict.result, conflicts, suggestions]);
   const choose = (id: string, choice: ConflictChoice) => setChoices((prev) => ({ ...prev, [id]: choice }));
-  const pickAll = (choice: ConflictChoice) => setChoices(Object.fromEntries(conflicts.map((item) => [item.id, choice])));
+  const pickAll = (choice: "ours" | "theirs") => {
+    setBulk(choice);
+    setChoices(Object.fromEntries(conflicts.map((item) => [item.id, choice])));
+  };
 
   return (
     <>
@@ -130,18 +174,13 @@ function ConflictBody({ conflict, onResolve }: { conflict: SaveConflict; onResol
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="sm" className={CHOICE_BUTTON.emerald.idle} onClick={() => pickAll("ours")}>
-                {t("collab.useMineAll")}
-              </Button>
-              <Button type="button" variant="outline" size="sm" className={CHOICE_BUTTON.rose.idle} onClick={() => pickAll("theirs")}>
-                {t("collab.useTheirsAll")}
-              </Button>
+              <BulkChoice value={bulk} onChange={pickAll} />
               <Button type="button" variant="outline" size="sm" className={CHOICE_BUTTON.violet.idle} onClick={() => setPreviewing(true)}>
                 <Sparkles size={14} />
                 {t("collab.askAi")}
               </Button>
             </div>
-            <Button type="button" size="sm" onClick={() => onResolve(choices, {})}>
+            <Button type="button" size="sm" className="border-emerald-700! bg-emerald-700! text-white! hover:border-emerald-800! hover:bg-emerald-800! hover:text-white!" onClick={() => onResolve(choices, {})}>
               {t("collab.apply")}
             </Button>
           </>
@@ -246,7 +285,7 @@ function ConflictItem({
   return (
     <section className="rounded-xl border border-border bg-background shadow-sm">
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-[11px] font-medium text-background">{index}</span>
+        <span className="flex size-5 items-center justify-center rounded-full bg-amber-100 text-[11px] font-medium text-amber-800">{index}</span>
         <span className="text-xs text-muted-foreground">{t("collab.conflictIndex", { index })}</span>
       </header>
       <div className="grid gap-3 p-3 sm:grid-cols-2">
@@ -277,7 +316,7 @@ function ConflictItem({
           size="sm"
           variant="outline"
           onClick={() => onChoose("both")}
-          className={choice === "both" ? "border-foreground bg-foreground text-background hover:bg-foreground" : ""}
+          className={choice === "both" ? CHOICE_BUTTON.amber.on : CHOICE_BUTTON.amber.idle}
         >
           {choice === "both" ? <Check size={14} /> : null}
           {t("collab.keepBoth")}
@@ -315,8 +354,8 @@ function Pane({
     <div
       className={cn(
         "flex min-h-28 min-w-0 flex-col rounded-xl border text-left transition-colors",
-        selected && accent === "emerald" && "border-emerald-600 bg-emerald-500/5",
-        selected && accent === "rose" && "border-rose-600 bg-rose-500/5",
+        selected && accent === "emerald" && "border-emerald-400 bg-emerald-50",
+        selected && accent === "rose" && "border-rose-400 bg-rose-50",
         !selected && "border-border bg-muted/20",
         className,
       )}
