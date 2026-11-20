@@ -453,7 +453,7 @@ export const en: Messages = {
     noMatch: "No matching members",
     prevPage: "Previous",
     nextPage: "Next",
-    pageOf: "{{page}} / {{pages}}",
+    memberTotal: "{{count}} members, {{size}} per page",
     joined: "Joined the team",
   },
   settingsMenu: {

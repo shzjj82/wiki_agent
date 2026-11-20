@@ -451,7 +451,7 @@ export const zh = {
     noMatch: "没有匹配的成员",
     prevPage: "上一页",
     nextPage: "下一页",
-    pageOf: "{{page}} / {{pages}}",
+    memberTotal: "共 {{count}} 人，每页 {{size}} 人",
     joined: "已加入团队",
   },
   settingsMenu: {

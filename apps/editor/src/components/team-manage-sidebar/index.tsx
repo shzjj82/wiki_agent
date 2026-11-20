@@ -40,43 +40,34 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
           </Button>
         </header>
         <Tabs value={detail.tab} onValueChange={detail.setTab} className="min-h-0 flex-1 gap-4 overflow-auto p-5">
-          <div className="flex items-center gap-3 border-b border-border">
-            <TabsList variant="line" className="-mb-px h-10 shrink-0 gap-5 p-0">
+          <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border">
+            <TabsList variant="line" className="-mb-px shrink-0 gap-5 self-stretch p-0 group-data-horizontal/tabs:h-auto">
               <TabsTrigger value="details" className={LINE_TAB}>{t("team.manageTeam")}</TabsTrigger>
               <TabsTrigger value="members" className={LINE_TAB}>{t("team.members")}</TabsTrigger>
               <TabsTrigger value="roles" className={LINE_TAB}>{t("team.roleInfo")}</TabsTrigger>
             </TabsList>
-            {detail.tab === "details" && detail.canEdit ? (
+            {detail.canEdit && detail.tab !== "roles" ? (
               <div className="ml-auto flex items-center gap-2">
                 {detail.editing ? (
                   <>
                     <Button type="button" variant="ghost" size="sm" disabled={detail.busy} onClick={() => detail.toggleEditing(false)}>
                       {t("common.cancel")}
                     </Button>
-                    <Button type="submit" form={TEAM_DETAILS_FORM} size="sm" disabled={detail.busy || !dirty || !detail.name.trim()}>
-                      {t("team.saveDetails")}
-                    </Button>
+                    {detail.tab === "details" ? (
+                      <Button type="submit" form={TEAM_DETAILS_FORM} size="sm" disabled={detail.busy || !dirty || !detail.name.trim()}>
+                        {t("team.saveDetails")}
+                      </Button>
+                    ) : (
+                      <Button type="button" size="sm" disabled={detail.busy || !detail.rolesDirty} onClick={detail.saveRoles}>
+                        {t("team.saveDetails")}
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <Button type="button" variant="outline" size="sm" onClick={() => detail.toggleEditing(true)}>
                     {t("team.editDetails")}
                   </Button>
                 )}
-              </div>
-            ) : null}
-            {detail.tab === "members" ? (
-              <div className="relative ml-auto mb-1 min-w-36 flex-1 sm:max-w-56">
-                <Search size={14} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={detail.query}
-                  aria-label={t("team.memberSearch")}
-                  placeholder={t("team.memberSearch")}
-                  className="h-8 bg-background pl-7"
-                  onChange={(event) => {
-                    detail.setQuery(event.target.value);
-                    detail.setPage(1);
-                  }}
-                />
               </div>
             ) : null}
           </div>
@@ -99,8 +90,23 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
             />
           </TabsContent>
           <TabsContent value="members" className="grid h-auto flex-none content-start items-start gap-3">
+            <div className="relative w-full justify-self-end sm:max-w-64">
+              <Search size={14} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={detail.query}
+                aria-label={t("team.memberSearch")}
+                placeholder={t("team.memberSearch")}
+                className="h-8 bg-background pl-7"
+                onChange={(event) => {
+                  detail.setQuery(event.target.value);
+                  detail.setPage(1);
+                }}
+              />
+            </div>
             <TeamMembersTab
               shown={shown}
+              editing={detail.editing}
+              roleDraft={detail.roleDraft}
               busy={detail.busy}
               error={detail.error}
               visible={detail.visible}
@@ -109,7 +115,7 @@ export function TeamManageSidebar({ session, team, open, onClose, onChanged }: P
               currentPage={detail.currentPage}
               pages={detail.pages}
               pageSize={detail.pageSize}
-              onAssignRole={detail.assignRole}
+              onDraftRole={detail.draftRole}
               onPage={detail.setPage}
             />
           </TabsContent>

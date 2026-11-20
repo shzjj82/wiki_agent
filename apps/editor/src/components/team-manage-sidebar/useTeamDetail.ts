@@ -25,6 +25,7 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState("details");
   const [editing, setEditing] = useState(false);
+  const [roleDraft, setRoleDraft] = useState<Record<string, TeamRole>>({});
   const canEdit = Boolean(shown && canManageTeam(shown.role));
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
     setPage(1);
     setTab("details");
     setEditing(false);
+    setRoleDraft({});
     let alive = true;
     void loadTeam(session, team.id)
       .then((detail) => {
@@ -63,27 +65,55 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
   const currentPage = Math.min(page, pages);
   const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  function assignRole(accountId: string, role: TeamRole) {
+  function draftRole(accountId: string, role: TeamRole) {
+    const original = members.find((item) => item.accountId === accountId)?.role;
+    setRoleDraft((prev) => {
+      const next = { ...prev };
+      if (role === original) delete next[accountId];
+      else next[accountId] = role;
+      return next;
+    });
+  }
+
+  function saveRoles() {
     if (!shown || !canManageTeam(shown.role)) return;
+    const changes = Object.entries(roleDraft);
+    if (!changes.length) return;
     setBusy(true);
     setError("");
-    void setTeamRole(session, shown.id, accountId, role)
-      .then(() => {
+    void (async () => {
+      for (const [accountId, role] of changes) {
+        await setTeamRole(session, shown.id, accountId, role);
         setMembers((prev) => prev.map((item) => (item.accountId === accountId ? { ...item, role } : item)));
+        setRoleDraft((prev) => {
+          const next = { ...prev };
+          delete next[accountId];
+          return next;
+        });
+      }
+    })()
+      .then(() => {
+        setEditing(false);
         onChanged();
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : t("team.roleFailed")))
       .finally(() => setBusy(false));
   }
 
-  /** 关掉编辑开关时丢弃没保存的改动 */
+  /** 退出编辑时丢弃没保存的改动 */
   function toggleEditing(on: boolean) {
     setEditing(on);
     if (!on && shown) {
       setName(shown.name);
       setDescription(shown.description ?? "");
+      setRoleDraft({});
       setError("");
     }
+  }
+
+  function switchTab(next: string) {
+    toggleEditing(false);
+    setTab(next);
   }
 
   return {
@@ -102,7 +132,7 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
     setQuery,
     setPage,
     tab,
-    setTab,
+    setTab: switchTab,
     canEdit,
     editing: canEdit && editing,
     toggleEditing,
@@ -111,6 +141,9 @@ export function useTeamDetail(session: RemoteSession, team: TeamInfo | null, onC
     currentPage,
     pages,
     pageSize: PAGE_SIZE,
-    assignRole,
+    roleDraft,
+    rolesDirty: Object.keys(roleDraft).length > 0,
+    draftRole,
+    saveRoles,
   };
 }
