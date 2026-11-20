@@ -59,7 +59,7 @@ const UpdateUiContext = createContext<UpdateUi>({ available: false, openAvailabl
 
 /**
  * 桌面安装包里的可选更新。小版本只在菜单点「检查更新」时提示。
- * 大版本在原生壳里用系统对话框拦住，这里发现大版本就交给壳，不再弹页面。
+ * 大版本交给原生壳：系统对话框确认后，窗口换成带进度条的更新页。
  */
 export function AppUpdateProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
