@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { useIsMobile } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
-import { activeHeadingIndex, headingLabel, headingLevel, outlineFrame, type OutlineLevel } from "./outline";
+import { activeHeadingIndex, headingLabel, headingLevel, outlineFrame, tickGap, type OutlineLevel } from "./outline";
 
 type OutlineItem = {
   id: string;
@@ -16,19 +16,11 @@ type OutlineItem = {
 type Metrics = {
   top: number;
   height: number;
-  textRight: number;
   scrollerLeft: number;
   scrollerRight: number;
 };
 
-/** 正文栏同宽，量一块就够，避免每个块都触发布局。 */
-function textRightEdge(root: HTMLElement): number {
-  const node = root.querySelector(".ce-block__content");
-  if (node instanceof HTMLElement) {
-    return node.getBoundingClientRect().right;
-  }
-  return root.getBoundingClientRect().right;
-}
+const TOP_INSET = 16;
 
 function sameOutline(current: OutlineItem[], next: OutlineItem[]): boolean {
   if (current.length !== next.length) {
@@ -41,9 +33,9 @@ function sameOutline(current: OutlineItem[], next: OutlineItem[]): boolean {
 }
 
 const TICK_WIDTH: Record<OutlineLevel, string> = {
-  1: "w-4",
-  2: "w-3",
-  3: "w-2",
+  1: "w-6",
+  2: "w-4",
+  3: "w-3",
 };
 
 function collectHeadings(root: HTMLElement): OutlineItem[] {
@@ -77,7 +69,7 @@ function scrollParent(root: HTMLElement): HTMLElement | null {
   return scroller instanceof HTMLElement ? scroller : null;
 }
 
-/** 桌面端正文右侧的标题目录。收起时是一列短线，悬停展开标题，点击跳到对应位置。 */
+/** 桌面端贴在页面最右侧的标题目录。收起时是一列短线，悬停向左展开标题，点击跳到对应位置。 */
 export function HeadingOutline({ root }: { root: HTMLElement | null }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -144,7 +136,6 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
       const next = {
         top: Math.round(scrollerRect.top),
         height: Math.round(scrollerRect.height),
-        textRight: Math.round(textRightEdge(root)),
         scrollerLeft: Math.round(scrollerRect.left),
         scrollerRight: Math.round(scrollerRect.right),
       };
@@ -152,7 +143,6 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
         current &&
         current.top === next.top &&
         current.height === next.height &&
-        current.textRight === next.textRight &&
         current.scrollerLeft === next.scrollerLeft &&
         current.scrollerRight === next.scrollerRight
           ? current
@@ -181,7 +171,8 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
     let frame = 0;
     let measureTimer = 0;
     const apply = (scrollTop: number) => {
-      const next = activeHeadingIndex(offsets, scrollTop);
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+      const next = activeHeadingIndex(offsets, scrollTop, 28, maxScroll, scroller.clientHeight);
       setActive((current) => (current === next ? current : next));
     };
     // 位置只在标题变化或布局稳定后量一次。滚动时用这份缓存，不再逐个读布局。
@@ -210,14 +201,14 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
     };
   }, [isMobile, root, items]);
 
-  const frame = metrics ? outlineFrame(metrics.textRight, metrics.scrollerLeft, metrics.scrollerRight, open) : null;
+  const frame = metrics ? outlineFrame(metrics.scrollerLeft, metrics.scrollerRight, open) : null;
   const expanded = open;
 
   if (isMobile || !root || !metrics || !frame || items.length === 0) {
     return null;
   }
 
-  const maxHeight = Math.max(96, metrics.height - 32);
+  const maxHeight = Math.max(96, metrics.height - TOP_INSET * 2);
 
   const jump = (item: OutlineItem) => {
     const scroller = scrollParent(root);
@@ -233,11 +224,11 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
     <nav
       aria-label={t("blockEditor.outlineLabel")}
       className={cn(
-        "fixed z-30 flex -translate-y-1/2 flex-col",
+        "fixed z-30 flex flex-col",
         expanded && "overflow-hidden rounded-lg border border-border bg-background py-1.5 shadow-[0_8px_28px_rgb(0_0_0/0.08)]",
       )}
       style={{
-        top: metrics.top + metrics.height / 2,
+        top: metrics.top + TOP_INSET,
         left: frame.left,
         width: frame.width,
         maxHeight,
@@ -253,7 +244,10 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
     >
       {expanded ? <p className="shrink-0 px-2.5 pt-0.5 pb-1 text-xs text-muted-foreground">{t("blockEditor.outline")}</p> : null}
       <SoftScrollbar className="w-full" style={{ maxHeight: expanded ? maxHeight - 28 : maxHeight }}>
-        <div className={cn(expanded ? "px-1" : "flex flex-col items-end gap-1.5 py-1")}>
+        <div
+          className={cn(expanded ? "px-1" : "flex flex-col items-end py-1")}
+          style={expanded ? undefined : { gap: tickGap(items.length, maxHeight) }}
+        >
           {items.map((item, index) => {
             const current = index === active;
             return (
