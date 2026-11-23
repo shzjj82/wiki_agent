@@ -539,7 +539,7 @@ export const en: Messages = {
     retrieved: "Retrieved pages (including todos)",
     todoRule: "Answer only from the todos below. If a task is not listed, say so. Do not invent tasks, and do not say the user uploaded a file.",
     todoEmpty: "No matching todos are in the pages. Say that none were found. Do not invent any.",
-    system: "You answer questions about this wiki. Use only the pages and todos included in this message, and cite their titles. If the user did not upload a file, do not say the answer comes from an uploaded file. If a task is not listed, say it is not there. Do not invent tasks, dates, or document titles.",
+    system: "You answer questions about this wiki. If the user did not upload a file, do not say the answer comes from an uploaded file. Do not invent todos, dates, owners, or document titles. The server adds whether to answer only from the wiki, based on the retrieval score.",
     permissions: "Skill permissions",
     permHint: "Off by default. Turning a switch on only allows a request; each run still asks you to confirm.",
     resize: "Resize window",

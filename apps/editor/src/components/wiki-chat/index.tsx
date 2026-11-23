@@ -20,7 +20,7 @@ import {
   type SkillCall,
   type SkillGrants,
 } from "@/lib/ai/skills";
-import { retrieveWiki, type SearchDoc } from "@/lib/document/search";
+import type { SearchDoc } from "@/lib/document/search";
 import { copyText } from "@/lib/clipboard";
 import {
   detailToThread,
@@ -316,10 +316,7 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
           const docs = await loadPages();
           retrieved = aboutTodos
             ? formatTodos(docs, text, tr("wikiAsk.todoRule"), tr("wikiAsk.todoEmpty"))
-            : retrieveWiki(docs, text)
-                .map((hit) => `《${hit.title}》\n${hit.excerpt}`)
-                .join("\n\n")
-                .slice(0, 5000);
+            : "";
         } catch {
           retrieved = "";
         }
