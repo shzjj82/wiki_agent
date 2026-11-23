@@ -14,8 +14,8 @@ import { useTranslation } from "react-i18next";
 
 type Props = {
   listRef: RefObject<HTMLDivElement | null>;
-  fileRef: RefObject<HTMLInputElement | null>;
-  inputRef: RefObject<HTMLTextAreaElement | null>;
+  fileRef: RefObject<HTMLInputElement>;
+  inputRef: RefObject<HTMLTextAreaElement>;
   prompt: string;
   onPromptChange: (value: string) => void;
   bubbles: ChatBubble[];
