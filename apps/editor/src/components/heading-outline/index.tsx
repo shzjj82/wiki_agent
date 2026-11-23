@@ -69,6 +69,12 @@ function scrollParent(root: HTMLElement): HTMLElement | null {
   return scroller instanceof HTMLElement ? scroller : null;
 }
 
+/** 挂进工作区，而不是 body。工作区自己是一层，body 上的正层级会盖住里面的 AI 弹窗。 */
+function outlineHost(root: HTMLElement): HTMLElement {
+  const shell = root.closest("div.fixed.inset-x-0");
+  return shell instanceof HTMLElement ? shell : document.body;
+}
+
 /** 桌面端贴在页面最右侧的标题目录。收起时是一列短线，悬停向左展开标题，点击跳到对应位置。 */
 export function HeadingOutline({ root }: { root: HTMLElement | null }) {
   const { t } = useTranslation();
@@ -224,7 +230,7 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
     <nav
       aria-label={t("blockEditor.outlineLabel")}
       className={cn(
-        "fixed z-30 flex flex-col",
+        "fixed z-20 flex flex-col",
         expanded && "overflow-hidden rounded-lg border border-border bg-background py-1.5 shadow-[0_8px_28px_rgb(0_0_0/0.08)]",
       )}
       style={{
@@ -276,6 +282,6 @@ export function HeadingOutline({ root }: { root: HTMLElement | null }) {
         </div>
       </SoftScrollbar>
     </nav>,
-    document.body,
+    outlineHost(root),
   );
 }
