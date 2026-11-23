@@ -134,7 +134,8 @@
   cursor: pointer;
 }
 
-.editor-spotlight-close:hover {
+.editor-spotlight-close:hover,
+.editor-spotlight-close.is-on {
   background: color-mix(in oklab, var(--foreground, #1c1917) 6%, transparent);
   color: var(--foreground, #1c1917);
 }
@@ -272,9 +273,7 @@
 }
 
 .editor-spotlight-panel.is-chat .editor-spotlight-search {
-  align-items: flex-start;
-  flex-wrap: wrap;
-  row-gap: 8px;
+  align-items: center;
   flex-shrink: 0;
 }
 

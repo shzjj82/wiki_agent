@@ -118,7 +118,7 @@ export function ChatMessages({
             </AssistantBubble>
           ) : (
             <div key={item.id} className="flex justify-end">
-              <div className="bg-primary text-primary-foreground max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm">
+              <div className="bg-foreground/14 text-foreground max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm">
                 {item.content ? <p className="leading-5 whitespace-pre-wrap">{item.content}</p> : null}
                 {item.attachments?.length ? (
                   <div className={item.content ? "mt-2" : undefined}>

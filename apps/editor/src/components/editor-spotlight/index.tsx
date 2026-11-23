@@ -1,5 +1,5 @@
 import type EditorJS from "@editorjs/editorjs";
-import { MessageSquare, Search, Send, X } from "lucide-react";
+import { History, PenLine, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SpotlightChatPane } from "./SpotlightChatPane";
@@ -19,7 +19,7 @@ export type SpotlightAction = {
   chip?: string;
   subtitle?: string;
   keywords?: string;
-  icon?: "robot" | "search";
+  icon?: "robot" | "search" | "book";
 };
 
 type Props = {
@@ -27,6 +27,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   actions: SpotlightAction[];
   editor: EditorJS | null;
+  /** 当前文章。写作对话按这篇分开记 */
+  pageId?: string;
   insertIndex: number;
   /** 打开时直接进入某命令（划词 / / 菜单） */
   launchActionId?: string | null;
@@ -59,6 +61,7 @@ export function EditorSpotlight({
   onOpenChange,
   actions,
   editor,
+  pageId,
   insertIndex,
   launchActionId,
   selection,
@@ -73,13 +76,13 @@ export function EditorSpotlight({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [action, setAction] = useState<SpotlightAction | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [pages, setPages] = useState<SearchDoc[] | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
-  const composingRef = useRef(false);
 
-  const chat = useSpotlightChat({ open, editor, insertIndex, loadPages, onInserted });
+  const chat = useSpotlightChat({ open, pageId, editor, insertIndex, loadPages, onInserted });
   const {
     prompt,
     setPrompt,
@@ -90,14 +93,18 @@ export function EditorSpotlight({
     draft,
     setDraft,
     resetChat,
-    addFiles,
-    send,
   } = chat;
 
   const filtered = useMemo<SpotlightCommandItem[]>(() => {
     const commands = actions
       .filter((item) => matchAction(item, query))
-      .map((item) => ({ id: item.id, kind: "action" as const, title: item.title, subtitle: item.subtitle }));
+      .map((item) => ({
+        id: item.id,
+        kind: "action" as const,
+        title: item.title,
+        subtitle: item.subtitle,
+        icon: item.icon,
+      }));
     const hits = pages ? searchDocs(pages, query) : [];
     return [
       ...commands,
@@ -143,6 +150,7 @@ export function EditorSpotlight({
   const enterAction = (item: SpotlightAction, nextQuote?: string) => {
     setAction(item);
     setQuery("");
+    setHistoryOpen(false);
     resetChat();
     setQuote(nextQuote?.trim() || selection?.trim() || "");
     window.setTimeout(() => messageRef.current?.focus({ preventScroll: true }), 30);
@@ -150,6 +158,7 @@ export function EditorSpotlight({
 
   const clearAction = () => {
     setAction(null);
+    setHistoryOpen(false);
     resetChat();
     setQuery("");
     window.setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 30);
@@ -159,6 +168,7 @@ export function EditorSpotlight({
     setAction(null);
     setQuery("");
     setActive(0);
+    setHistoryOpen(false);
     resetChat();
     onOpenChange(false);
   };
@@ -279,70 +289,18 @@ export function EditorSpotlight({
       >
         <div className="editor-spotlight-search">
           {inChat && action ? (
-            <>
-              <span className="editor-spotlight-chip">
-                <MessageSquare size={14} aria-hidden />
-                <span>{action.chip || action.title}</span>
-                <button
-                  type="button"
-                  className="editor-spotlight-chip-clear"
-                  aria-label={t("spotlight.exitCommand")}
-                  onClick={clearAction}
-                >
-                  <X size={12} />
-                </button>
-              </span>
-              <textarea
-                ref={messageRef}
-                className="editor-spotlight-message"
-                rows={1}
-                value={prompt}
-                // 让移动端虚拟键盘显示「发送/前往」，而不是换行
-                enterKeyHint="send"
-                placeholder={quote ? t("spotlight.askAboutTheSelection") : t("spotlight.messagePlaceholder")}
-                aria-label={t("spotlight.messageLabel")}
-                onChange={(e) => setPrompt(e.currentTarget.value)}
-                onCompositionStart={() => {
-                  composingRef.current = true;
-                }}
-                onCompositionEnd={() => {
-                  window.setTimeout(() => {
-                    composingRef.current = false;
-                  }, 0);
-                }}
-                onPaste={(e) => {
-                  const files = Array.from(e.clipboardData?.files ?? []);
-                  if (files.length) {
-                    e.preventDefault();
-                    void addFiles(files);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) {
-                    return;
-                  }
-                  if (e.key === "Backspace" && !prompt && !quote && !attachments.length && !bubbles.length) {
-                    e.preventDefault();
-                    clearAction();
-                    return;
-                  }
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void send();
-                  }
-                }}
-              />
-              {/* 移动端：输入框旁边直接给一个发送按钮（桌面端靠 Enter / 底部按钮） */}
+            <span className="editor-spotlight-chip">
+              <PenLine size={14} aria-hidden />
+              <span>{action.chip || action.title}</span>
               <button
                 type="button"
-                className="editor-spotlight-send"
-                disabled={!chat.canSend}
-                aria-label={t("spotlight.send")}
-                onClick={() => void send()}
+                className="editor-spotlight-chip-clear"
+                aria-label={t("spotlight.exitCommand")}
+                onClick={clearAction}
               >
-                <Send size={18} />
+                <X size={12} />
               </button>
-            </>
+            </span>
           ) : (
             <>
               <Search size={18} className="editor-spotlight-search-icon" aria-hidden />
@@ -382,6 +340,17 @@ export function EditorSpotlight({
             </>
           )}
           <div className="editor-spotlight-search-end">
+            {inChat ? (
+              <button
+                type="button"
+                className={cn("editor-spotlight-close", historyOpen && "is-on")}
+                aria-pressed={historyOpen}
+                aria-label={t("wikiAsk.history")}
+                onClick={() => setHistoryOpen((open) => !open)}
+              >
+                <History size={14} />
+              </button>
+            ) : null}
             <kbd className="editor-spotlight-kbd">esc</kbd>
             <button type="button" className="editor-spotlight-close" aria-label={t("spotlight.close")} onClick={closeAll}>
               <X size={14} />
@@ -401,7 +370,22 @@ export function EditorSpotlight({
           <SpotlightChatPane
             listRef={chat.listRef}
             fileRef={chat.fileRef}
+            inputRef={messageRef}
+            prompt={prompt}
+            onPromptChange={setPrompt}
             bubbles={chat.bubbles}
+            threads={chat.threads}
+            threadId={chat.threadId}
+            historyOpen={historyOpen}
+            onOpenThread={(id) => {
+              chat.openThread(id);
+              setHistoryOpen(false);
+            }}
+            onNewThread={() => {
+              chat.newThread();
+              setHistoryOpen(false);
+            }}
+            onDeleteThread={chat.deleteThread}
             quote={chat.quote}
             setQuote={chat.setQuote}
             attachments={chat.attachments}

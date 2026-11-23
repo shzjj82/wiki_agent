@@ -16,6 +16,7 @@ import {
 } from "@/lib/ai/chat";
 import { blocksToPreviewMarkdown, markdownToEditorBlocks } from "@/lib/ai/markdown";
 import { pageTodos, type SearchDoc } from "@/lib/document/search";
+import { loadWritingPage, saveWritingPage, writingTitle, type WritingThread } from "@/lib/ai/writingThread";
 import { t } from "@/i18n";
 import { loadSession } from "@/store/remoteStore";
 
@@ -28,17 +29,23 @@ export type DraftInsert = {
 
 type Options = {
   open: boolean;
+  /** 写作记录按这篇文章分开存，和知识库对话不是同一份 */
+  pageId?: string;
   editor: EditorJS | null;
   insertIndex: number;
   loadPages?: () => Promise<SearchDoc[]>;
   onInserted?: () => void;
 };
 
+function upsertThread(threads: WritingThread[], thread: WritingThread): WritingThread[] {
+  return [thread, ...threads.filter((item) => item.id !== thread.id)].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 function asksAboutTodos(query: string): boolean {
   return /待办|未完成|未开始|进行中|已完成|已终止|todo/i.test(query);
 }
 
-export function useSpotlightChat({ open, editor, insertIndex, loadPages, onInserted }: Options) {
+export function useSpotlightChat({ open, pageId = "", editor, insertIndex, loadPages, onInserted }: Options) {
   const [enabled, setEnabled] = useState(true);
   const [statusError, setStatusError] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -49,6 +56,8 @@ export function useSpotlightChat({ open, editor, insertIndex, loadPages, onInser
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [quote, setQuote] = useState("");
   const [bubbles, setBubbles] = useState<ChatBubble[]>([]);
+  const [threads, setThreads] = useState<WritingThread[]>([]);
+  const [threadId, setThreadId] = useState("");
   const [draft, setDraft] = useState<DraftInsert | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -58,6 +67,74 @@ export function useSpotlightChat({ open, editor, insertIndex, loadPages, onInser
   attachmentsRef.current = attachments;
   const bubblesRef = useRef(bubbles);
   bubblesRef.current = bubbles;
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
+  const pageIdRef = useRef(pageId);
+  const skipSaveRef = useRef(true);
+
+  const persistPage = (id: string, nextThreads: WritingThread[], activeId: string) => {
+    threadsRef.current = nextThreads;
+    setThreads(nextThreads);
+    saveWritingPage(id, { activeId, threads: nextThreads });
+  };
+
+  useEffect(() => {
+    const prev = pageIdRef.current;
+    if (prev && prev !== pageId) {
+      const currentId = threadIdRef.current;
+      const currentBubbles = bubblesRef.current;
+      if (currentId && currentBubbles.length) {
+        const title = writingTitle(currentBubbles, t("wikiAsk.untitledChat"));
+        const next = upsertThread(threadsRef.current, {
+          id: currentId,
+          title,
+          updatedAt: Date.now(),
+          bubbles: currentBubbles,
+        });
+        saveWritingPage(prev, { activeId: currentId, threads: next });
+      }
+    }
+    pageIdRef.current = pageId;
+    skipSaveRef.current = true;
+    abortInFlight();
+    const stored = loadWritingPage(pageId);
+    const active = stored.threads.find((item) => item.id === stored.activeId) ?? stored.threads[0];
+    setThreads(stored.threads);
+    setThreadId(active?.id ?? "");
+    setBubbles(active?.bubbles ?? []);
+    setPrompt("");
+    setError("");
+    setAttachments([]);
+    setQuote("");
+    setDraft(null);
+  }, [pageId]);
+
+  useEffect(() => {
+    if (!pageId) {
+      return;
+    }
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
+    if (!bubbles.length) {
+      return;
+    }
+    const id = threadIdRef.current || uid();
+    if (threadIdRef.current !== id) {
+      threadIdRef.current = id;
+      setThreadId(id);
+    }
+    const next = upsertThread(threadsRef.current, {
+      id,
+      title: writingTitle(bubbles, t("wikiAsk.untitledChat")),
+      updatedAt: Date.now(),
+      bubbles,
+    });
+    persistPage(pageId, next, id);
+  }, [pageId, bubbles]);
 
   const abortInFlight = () => {
     abortRef.current?.abort();
@@ -94,6 +171,48 @@ export function useSpotlightChat({ open, editor, insertIndex, loadPages, onInser
   }, [open]);
 
 
+  const openThread = (id: string) => {
+    const found = threadsRef.current.find((item) => item.id === id);
+    if (!found) {
+      return;
+    }
+    skipSaveRef.current = true;
+    threadIdRef.current = id;
+    setThreadId(id);
+    setBubbles(found.bubbles);
+    setDraft(null);
+    setPrompt("");
+    if (pageId) {
+      saveWritingPage(pageId, { activeId: id, threads: threadsRef.current });
+    }
+  };
+
+  const newThread = () => {
+    skipSaveRef.current = true;
+    const id = uid();
+    threadIdRef.current = id;
+    setThreadId(id);
+    setBubbles([]);
+    setDraft(null);
+    setPrompt("");
+    setQuote("");
+  };
+
+  const deleteThread = (id: string) => {
+    const rest = threadsRef.current.filter((item) => item.id !== id);
+    if (threadIdRef.current !== id) {
+      persistPage(pageId, rest, threadIdRef.current);
+      return;
+    }
+    const next = rest[0];
+    skipSaveRef.current = true;
+    threadIdRef.current = next?.id ?? "";
+    setThreadId(next?.id ?? "");
+    setBubbles(next?.bubbles ?? []);
+    setDraft(null);
+    persistPage(pageId, rest, next?.id ?? "");
+  };
+
   const resetChat = () => {
     abortInFlight();
     setPrompt("");
@@ -103,7 +222,6 @@ export function useSpotlightChat({ open, editor, insertIndex, loadPages, onInser
     setUploading(false);
     setAttachments([]);
     setQuote("");
-    setBubbles([]);
     setDraft(null);
   };
 
@@ -398,6 +516,11 @@ export function useSpotlightChat({ open, editor, insertIndex, loadPages, onInser
     quote,
     setQuote,
     bubbles,
+    threads,
+    threadId,
+    openThread,
+    newThread,
+    deleteThread,
     draft,
     setDraft,
     listRef,

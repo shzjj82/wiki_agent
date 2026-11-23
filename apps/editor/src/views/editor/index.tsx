@@ -461,7 +461,7 @@ export function EditorView() {
               title: t("wikiAsk.title"),
               subtitle: t("wikiAsk.subtitle"),
               keywords: t("wikiAsk.keywords"),
-              icon: "search",
+              icon: "book",
             },
             ...(workEnabled
               ? [
@@ -477,6 +477,7 @@ export function EditorView() {
           ] satisfies SpotlightAction[]
         }
         editor={editorReady ? editorRef.current : null}
+        pageId={page?.id}
         insertIndex={spotlightLaunch?.insertIndex ?? 0}
         launchActionId={spotlightLaunch?.actionId}
         selection={spotlightLaunch?.selection}

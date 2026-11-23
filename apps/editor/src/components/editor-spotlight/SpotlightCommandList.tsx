@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FileText, MessageSquare } from "lucide-react";
+import { BookOpen, FileText, PenLine, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -8,7 +8,18 @@ export type SpotlightCommandItem = {
   kind: "action" | "page";
   title: string;
   subtitle?: ReactNode;
+  icon?: "robot" | "search" | "book";
 };
+
+function ActionIcon({ icon }: { icon?: SpotlightCommandItem["icon"] }) {
+  if (icon === "book") {
+    return <BookOpen size={22} />;
+  }
+  if (icon === "search") {
+    return <Search size={22} />;
+  }
+  return <PenLine size={22} />;
+}
 
 type Props = {
   items: SpotlightCommandItem[];
@@ -44,7 +55,7 @@ export function SpotlightCommandList({ items, active, loading, onActiveChange, o
                 onClick={() => onSelect(item)}
               >
                 <span className="editor-spotlight-item-icon" aria-hidden>
-                  {item.kind === "page" ? <FileText size={18} /> : <MessageSquare size={28} />}
+                  {item.kind === "page" ? <FileText size={18} /> : <ActionIcon icon={item.icon} />}
                 </span>
                 <span className="editor-spotlight-item-copy">
                   <span className="editor-spotlight-item-title">{item.title}</span>
