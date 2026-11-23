@@ -180,6 +180,8 @@ export const en: Messages = {
     caption: "Caption",
     quote: "Quote",
     heading: "Heading",
+    outline: "Outline",
+    outlineLabel: "Heading outline",
     placeholder: "Write a title, then Enter. Type / for blocks, ⌘K for chat.",
     openSubpage: "Open subpage",
     creatingSubpage: "Creating subpage…",

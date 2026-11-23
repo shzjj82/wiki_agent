@@ -178,6 +178,8 @@ export const zh = {
     caption: "出处",
     quote: "引用",
     heading: "标题",
+    outline: "目录",
+    outlineLabel: "标题目录",
     placeholder: "写标题后回车继续。输入 / 添加块，⌘K 打开聊天。",
     openSubpage: "打开子页面",
     creatingSubpage: "正在创建子页面…",

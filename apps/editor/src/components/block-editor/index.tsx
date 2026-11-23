@@ -27,6 +27,7 @@ import { bindToolbarAnchor, blockIconKey } from "./toolbarAnchor";
 import { revealText } from "./revealText";
 import { useDocHistory } from "./useDocHistory";
 import { bindPaste } from "./paste";
+import { HeadingOutline } from "@/components/heading-outline";
 import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
 import { cn } from "@/lib/utils";
 import "./blockEditor.css";
@@ -615,6 +616,7 @@ export function BlockEditor({
         }}
         ref={holderRef}
       />
+      {!embed && !isMobile && ready ? <HeadingOutline root={holderRef.current} /> : null}
       {removedToast && !readOnly
         ? createPortal(
             <BlockRemovedToast
