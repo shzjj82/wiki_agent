@@ -92,14 +92,64 @@ export function loadSession(): RemoteSession | null {
   return readRawSession();
 }
 
+/** 网页缓存空了的时候，用本机文件里的登录态补回来。已有登录则不覆盖。 */
+export function applyPersistedSession(raw: string | null): boolean {
+  if (!raw || localStorage.getItem(SESSION_KEY)) {
+    return false;
+  }
+  try {
+    const parsed = JSON.parse(raw) as RemoteSession;
+    if (!parsed?.token && !parsed?.refreshToken) {
+      return false;
+    }
+    localStorage.setItem(SESSION_KEY, JSON.stringify(storedSession(parsed)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isDesktopShell(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function persistSessionFile(raw: string | null): void {
+  if (!isDesktopShell()) {
+    return;
+  }
+  void import("@tauri-apps/api/core")
+    .then(({ invoke }) => invoke("save_persisted_session", { raw }))
+    .catch(() => undefined);
+}
+
+/** 打开窗口前先把本机登录文件放回网页缓存。桌面壳以外直接跳过。 */
+export async function restorePersistedSession(): Promise<void> {
+  if (!isDesktopShell()) {
+    return;
+  }
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const raw = await invoke<string | null>("load_persisted_session");
+    if (!applyPersistedSession(raw)) {
+      const existing = localStorage.getItem(SESSION_KEY);
+      if (existing) {
+        persistSessionFile(existing);
+      }
+    }
+  } catch {
+    // 壳还没把命令准备好时，继续用网页里已经有的登录态
+  }
+}
+
 export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
+  persistSessionFile(null);
   emitSession(null);
 }
 
-function saveSession(session: RemoteSession): void {
-  const stored: RemoteSession = {
+function storedSession(session: RemoteSession): RemoteSession {
+  return {
     baseUrl: GATEWAY_BASE_URL,
     token: session.token,
     username: session.username,
@@ -107,8 +157,13 @@ function saveSession(session: RemoteSession): void {
     refreshToken: session.refreshToken,
     expiresAt: session.expiresAt,
   };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(stored));
+}
+
+function saveSession(session: RemoteSession): void {
+  const raw = JSON.stringify(storedSession(session));
+  localStorage.setItem(SESSION_KEY, raw);
   sessionStorage.removeItem(SESSION_KEY);
+  persistSessionFile(raw);
 }
 
 function accessStillValid(session: RemoteSession): boolean {

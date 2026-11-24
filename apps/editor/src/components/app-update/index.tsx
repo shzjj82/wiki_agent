@@ -30,8 +30,8 @@ function isDesktopApp(): boolean {
 }
 
 async function relaunchApp(): Promise<void> {
-  const { relaunch } = await import("@tauri-apps/plugin-process");
-  await relaunch();
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("relaunch_app");
 }
 
 async function lookForUpdate(): Promise<UpdateHandle | null> {

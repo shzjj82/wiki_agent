@@ -108,8 +108,7 @@ fn begin_required_update(app: tauri::AppHandle, window: tauri::WebviewWindow, up
         let _ = app_for_download.clone().run_on_main_thread(move || match result {
             Ok(()) => {
                 set_progress(&window_for_download, copy.installing, "", Some(100));
-                stop_desktop_server(&app_for_download);
-                app_for_download.restart();
+                crate::relaunch_installed(&app_for_download);
             }
             Err(err) => {
                 append_log(&format!("required update failed: {err}"));

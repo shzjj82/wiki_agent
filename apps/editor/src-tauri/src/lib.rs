@@ -557,6 +557,10 @@ fn start_desktop_server(app: &tauri::App) -> Result<u16, String> {
         return Err(missing_resource_hint(app, "runtime 资源"));
     }
 
+    // 上次更新或关闭如果没带走本机服务，47321 会被占住，下次只能换端口，登录态就对不上。
+    #[cfg(target_os = "windows")]
+    stop_leftover_service();
+
     let node = for_child_path(&node_raw);
     let script = for_child_path(&script_raw);
     let dist = for_child_path(&dist_raw);
@@ -674,6 +678,127 @@ pub(crate) fn stop_desktop_server(app: &tauri::AppHandle) {
     }
 }
 
+/// Windows 上子进程不会跟着主程序一起退出。启动前清掉残留的本机服务，把固定端口让出来。
+#[cfg(target_os = "windows")]
+fn stop_leftover_service() {
+    use std::os::windows::process::CommandExt;
+    let _ = Command::new("taskkill")
+        .args(["/F", "/IM", NODE_NAME])
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+fn session_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|err| err.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
+    Ok(dir.join("session.json"))
+}
+
+/// 登录态写在 WebView 里时，Windows 关闭或覆盖安装会把它清掉。改存到应用数据目录。
+#[tauri::command]
+fn load_persisted_session(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = session_file(&app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[tauri::command]
+fn save_persisted_session(app: tauri::AppHandle, raw: Option<String>) -> Result<(), String> {
+    let path = session_file(&app)?;
+    let Some(raw) = raw.filter(|value| !value.trim().is_empty()) else {
+        let _ = std::fs::remove_file(&path);
+        return Ok(());
+    };
+    if raw.len() > 64 * 1024 {
+        return Err("SESSION_INVALID".into());
+    }
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&path)
+        .map_err(|err| err.to_string())?;
+    file.write_all(raw.as_bytes()).map_err(|err| err.to_string())?;
+    file.sync_all().map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+fn focus_running_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+/// macOS 上如果先拉起新进程再退出，旧窗口会留着。等当前进程退出后再 open 一次。
+#[cfg(target_os = "macos")]
+fn schedule_macos_reopen() {
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let Some(macos_dir) = exe.parent() else {
+        return;
+    };
+    if macos_dir.file_name().and_then(|name| name.to_str()) != Some("MacOS") {
+        return;
+    }
+    let Some(contents) = macos_dir.parent() else {
+        return;
+    };
+    if contents.file_name().and_then(|name| name.to_str()) != Some("Contents") {
+        return;
+    }
+    let Some(bundle) = contents.parent() else {
+        return;
+    };
+    let quoted = format!("'{}'", bundle.to_string_lossy().replace('\'', r"'\''"));
+    let pid = std::process::id();
+    let script = format!(
+        "nohup /bin/sh -c 'while kill -0 {pid} 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$1\"' _ {quoted} >/dev/null 2>&1 &"
+    );
+    let _ = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(script)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+}
+
+/// 更新装完后重新打开。Windows 安装器会自己拉起，这里只负责 macOS 先退出再打开。
+pub(crate) fn relaunch_installed(app: &tauri::AppHandle) {
+    stop_desktop_server(app);
+    #[cfg(target_os = "macos")]
+    {
+        schedule_macos_reopen();
+        app.exit(0);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        app.restart();
+    }
+}
+
+#[tauri::command]
+fn relaunch_app(app: tauri::AppHandle) {
+    relaunch_installed(&app);
+}
+
 fn open_local_app(window: &tauri::WebviewWindow, port: u16) -> Result<(), String> {
     let url = format!("http://127.0.0.1:{port}/app")
         .parse::<tauri::Url>()
@@ -694,6 +819,9 @@ pub fn run() {
         }
     });
     builder
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            focus_running_window(&app);
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
@@ -709,6 +837,9 @@ pub fn run() {
             browser_cmd::open_installed_browser,
             browser_cmd::reveal_work_extension,
             browser_cmd::capture_screen,
+            load_persisted_session,
+            save_persisted_session,
+            relaunch_app,
         ])
         .setup(|app| -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(target_os = "macos")]

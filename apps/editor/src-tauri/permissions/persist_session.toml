@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-persist-session"
+description = "把登录态写到本机文件，并在更新后重新打开应用。"
+commands.allow = ["load_persisted_session", "save_persisted_session", "relaunch_app"]
+
+[[permission]]
+identifier = "deny-persist-session"
+description = "禁止页面读写本机登录文件或触发重新打开。"
+commands.deny = ["load_persisted_session", "save_persisted_session", "relaunch_app"]

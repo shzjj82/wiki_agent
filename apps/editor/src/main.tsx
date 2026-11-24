@@ -3,10 +3,11 @@ import { RouterProvider } from "react-router";
 import "@/i18n";
 import { registerPwa } from "@/components/pwa-install";
 import { ensureLatestWebVersion } from "@/lib/webVersion";
+import { restorePersistedSession } from "@/store/remoteStore";
 import { router } from "./router";
 import "./styles/index.css";
 
-void ensureLatestWebVersion().then((reloading) => {
+void restorePersistedSession().then(() => ensureLatestWebVersion()).then((reloading) => {
   if (reloading) {
     return;
   }

@@ -17,7 +17,8 @@
     "allow-read-ai-file",
     "allow-list-installed-browsers",
     "allow-open-installed-browser",
-    "allow-reveal-work-extension"
+    "allow-reveal-work-extension",
+    "allow-persist-session"
   ],
   "remote": {
     "urls": ["http://127.0.0.1:*", "http://localhost:*"]
