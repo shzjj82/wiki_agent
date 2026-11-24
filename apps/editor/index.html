@@ -15,6 +15,22 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>wiki-agent</title>
     <script>
+      // 发版后旧页面还在要新的代码块，Safari 会报 Importing a module script failed 并停住。
+      // 这种失败只自动刷新一次。
+      (function () {
+        var key = "editor:module-reload";
+        window.addEventListener("vite:preloadError", function (event) {
+          event.preventDefault();
+          if (sessionStorage.getItem(key)) return;
+          sessionStorage.setItem(key, "1");
+          window.location.reload();
+        });
+        window.addEventListener("load", function () {
+          sessionStorage.removeItem(key);
+        });
+      })();
+    </script>
+    <script>
       // crypto.randomUUID 只在安全上下文（https / localhost）可用，
       // 通过 http://ip:port 访问时不存在，会导致应用启动即白屏。这里补一个实现。
       (function () {

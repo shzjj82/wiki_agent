@@ -68,7 +68,13 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: gatewayProxy(gatewayBase),
       watch: {
-        ignored: ["**/src-tauri/**"],
+        // 发布会改写 release 和 shared 产物。不忽略的话开发页会连刷十几次，
+        // Safari 会把被取消的模块报成 Importing a module script failed，然后停在白屏。
+        ignored: ["**/src-tauri/**", "**/release/**"],
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 50,
+        },
       },
     },
     preview: {
