@@ -20,6 +20,7 @@ import {
   blankItem,
   displayStatus,
   isEnded,
+  isUrge,
   normalize,
   reopenStatus,
   statusLabel,
@@ -553,6 +554,10 @@ export class TodoBlockTool implements BlockTool {
     const badge = document.createElement("span");
     badge.className = `cdx-todo__badge is-${shown}`;
     badge.textContent = statusLabel(shown);
+    const urge = document.createElement("span");
+    urge.className = "cdx-todo__badge is-urge";
+    urge.textContent = t("todo.urge");
+    urge.hidden = !isUrge(item);
     const text = document.createElement("input");
     text.type = "text";
     text.className = "cdx-todo__text";
@@ -592,7 +597,7 @@ export class TodoBlockTool implements BlockTool {
         }
       }
     });
-    titleRow.append(badge, text);
+    titleRow.append(badge, urge, text);
 
     const cancelOrRestore = document.createElement("button");
     cancelOrRestore.type = "button";
@@ -1133,7 +1138,7 @@ export class TodoBlockTool implements BlockTool {
       const visibleStart = Math.max(start, weekStart);
       const visibleEnd = Math.min(end, weekEnd);
       const shown = displayStatus(item, this.data.notify);
-      const overdue = !isEnded(item.status) && Boolean(item.end) && item.end < today;
+      const overdue = isUrge(item, today);
       segments.push({
         name: item.text.trim() || t("todo.placeholder"),
         status: shown,
@@ -1159,7 +1164,7 @@ export class TodoBlockTool implements BlockTool {
       bar.style.gridColumn = `${segment.startCol} / ${segment.endCol + 1}`;
       bar.style.gridRow = String(lane + 2);
       bar.textContent = segment.name;
-      bar.title = `${segment.name} · ${statusLabel(segment.status)}${segment.overdue ? ` · ${t("todo.overdue")}` : ""}`;
+      bar.title = `${segment.name} · ${statusLabel(segment.status)}${segment.overdue ? ` · ${t("todo.urge")}` : ""}`;
       row.append(bar);
     }
     return row;
@@ -1254,7 +1259,12 @@ export class TodoBlockTool implements BlockTool {
     this.onOpenDetail({
       creating: false,
       pageId: this.getPageId(),
-      draft: { title: item.text, content: item.content ?? "", status: displayStatus(item, this.data.notify) },
+      draft: {
+        title: item.text,
+        content: item.content ?? "",
+        status: displayStatus(item, this.data.notify),
+        end: item.end,
+      },
       onStatus: async (status) => {
         item.status = status;
         this.tab = status === "in_progress" ? "in_progress" : "ended";

@@ -39,6 +39,36 @@ export function fineTodoStatus(todo: Pick<NotifyTodo, "status" | "startedAt" | "
   return normalizeTodoStatus(todo.status);
 }
 
+function calendarToday(now = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** 完成日：优先 data.end；否则用 dueAt 的 UTC 日历日（写入时是 end 日 23:59:59Z） */
+export function todoEndDate(todo: Pick<NotifyTodo, "dueAt" | "data"> | null | undefined): string {
+  const end = todo?.data?.end;
+  if (typeof end === "string" && /^\d{4}-\d{2}-\d{2}$/.test(end.trim())) {
+    return end.trim();
+  }
+  if (!todo?.dueAt) return "";
+  const date = new Date(todo.dueAt);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${month}-${day}`;
+}
+
+/** 未结束且完成日早于今天。与服务端逾期催办的入选条件一致 */
+export function isUrgeTodo(
+  todo: Pick<NotifyTodo, "status" | "dueAt" | "data"> | null | undefined,
+  today = calendarToday(),
+): boolean {
+  if (!todo || !isActiveTodoStatus(todo.status)) return false;
+  const end = todoEndDate(todo);
+  return Boolean(end) && end < today;
+}
+
 export function todoAttachments(todo: NotifyTodo | null | undefined): TodoAttachment[] {
   const raw = todo?.data?.attachments;
   if (!Array.isArray(raw)) return [];

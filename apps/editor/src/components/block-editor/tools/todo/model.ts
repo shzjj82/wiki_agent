@@ -22,7 +22,7 @@ export type TodoItem = {
 export type TodoBlockDetailRequest = {
   creating: boolean;
   pageId: string;
-  draft: { title: string; content?: string; status?: TodoStatus };
+  draft: { title: string; content?: string; status?: TodoStatus; end?: string };
   onSubmit: (data: { title: string; content: string }) => void | Promise<void>;
   /** 详情里确认后才改状态：未开始 → 进行中，进行中 → 已完成 */
   onStatus?: (status: "in_progress" | "done") => void | Promise<void>;
@@ -43,6 +43,11 @@ export type Tab = "pending" | "in_progress" | "ended";
 
 export function isEnded(status: TodoStatus): boolean {
   return status === "done" || status === "cancelled";
+}
+
+/** 未结束且完成日早于今天：服务端按这个条件每天催办一次 */
+export function isUrge(item: Pick<TodoItem, "status" | "end">, today = todayIso()): boolean {
+  return !isEnded(item.status) && Boolean(item.end) && item.end < today;
 }
 
 export function migrateStatus(raw: { status?: unknown; done?: unknown }): TodoStatus {

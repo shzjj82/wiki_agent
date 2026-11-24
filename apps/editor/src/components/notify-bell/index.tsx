@@ -14,6 +14,7 @@ import {
   refreshUnreadNoticeCount,
   markAllNoticesRead,
   markNoticeRead,
+  isUrgeTodo,
   noticeKind,
   pageIdFromNotice,
   peekNotifySnapshot,
@@ -459,6 +460,11 @@ function TodoList({
               >
                 {status}
               </span>
+              {isUrgeTodo(todo) ? (
+                <span className="shrink-0 rounded-full bg-[#fde8e4] px-1.5 py-0.5 text-[10px] leading-none text-[#c2410c]">
+                  {t("todo.urge")}
+                </span>
+              ) : null}
               {due ? (
                 <span className="ml-auto min-w-0 truncate text-right text-[10px] leading-none tabular-nums text-muted-foreground/85">
                   {due}
