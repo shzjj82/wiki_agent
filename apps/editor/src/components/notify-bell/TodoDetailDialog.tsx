@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { emptyEditorDocument, type EditorJsDocument } from "@myblog/shared";
-import { CircleCheck, FileText } from "lucide-react";
+import { ChevronDown, FileText } from "lucide-react";
 import { BlockEditor } from "@/components/block-editor";
 import { imageBlockData } from "@/components/block-editor/tools/ImageBlockTool";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,6 @@ import {
   encodeTodoContent,
   fineTodoStatus,
   getTodo,
-  markTodoDone,
   syncTodoStatus,
   todoAttachments,
   updateTodo,
@@ -35,6 +35,28 @@ import type { TodoBlockDetailRequest, TodoStatus } from "@/components/block-edit
 export type TodoDetailTarget =
   | { mode: "edit"; todo: NotifyTodo }
   | { mode: "block"; request: TodoBlockDetailRequest };
+
+const STATUS_ORDER: TodoStatus[] = ["pending", "in_progress", "done", "cancelled"];
+
+function nextTodoStatus(status: TodoStatus): TodoStatus {
+  if (status === "pending") return "in_progress";
+  if (status === "in_progress") return "done";
+  return "pending";
+}
+
+function nextStatusKey(status: TodoStatus) {
+  if (status === "pending") return "todo.startTask" as const;
+  if (status === "in_progress") return "todo.finishTask" as const;
+  if (status === "cancelled") return "todo.restore" as const;
+  return "todo.reopen" as const;
+}
+
+function statusNameKey(status: TodoStatus) {
+  if (status === "in_progress") return "todo.inProgress" as const;
+  if (status === "done") return "todo.done" as const;
+  if (status === "cancelled") return "todo.cancelled" as const;
+  return "todo.pending" as const;
+}
 
 type Props = {
   session: RemoteSession | null;
@@ -94,7 +116,7 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState<EditorJsDocument>(() => emptyEditorDocument());
   const [editorReady, setEditorReady] = useState(false);
-  const [busy, setBusy] = useState<"save" | "done" | "page" | "start" | null>(null);
+  const [busy, setBusy] = useState<"save" | "page" | "status" | null>(null);
   const [flowStatus, setFlowStatus] = useState<TodoStatus>("pending");
   const statusTouched = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,8 +178,8 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
           ? t("todo.cancelled")
           : t("notify.statusPending");
   const blockRequest = target?.mode === "block" ? target.request : null;
-  const canStart = !creating && flowStatus === "pending" && (Boolean(editing) || Boolean(blockRequest?.onStatus));
-  const canFinish = !creating && flowStatus === "in_progress" && (Boolean(editing) || Boolean(blockRequest?.onStatus));
+  const canChangeStatus = !creating && (Boolean(editing) || Boolean(blockRequest?.onStatus));
+  const nextStatus = nextTodoStatus(flowStatus);
 
   async function uploadFile(file: File): Promise<AttachmentData> {
     const { data } = await saveAttachment(session, file);
@@ -200,15 +222,15 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
     }
   }
 
-  async function onStart() {
-    if (!target || creating || flowStatus !== "pending") return;
-    setBusy("start");
+  async function setStatus(status: TodoStatus) {
+    if (!target || creating || status === flowStatus) return;
+    setBusy("status");
     setError(null);
     try {
       if (target.mode === "block") {
         statusTouched.current = true;
-        await target.request.onStatus?.("in_progress");
-        setFlowStatus("in_progress");
+        await target.request.onStatus?.(status);
+        setFlowStatus(status);
         return;
       }
       if (!session || !editing) throw new Error(t("notify.actionFailed"));
@@ -220,44 +242,18 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
         ...(content ? { content } : {}),
         startsAt: editing.startsAt ?? (typeof rest.start === "string" ? rest.start : null),
         dueAt: editing.dueAt,
-        status: "in_progress",
+        status,
         data: rest,
       });
-      const started = await syncTodoStatus(session, editing.id, "in_progress").catch(() => saved);
+      const synced = await syncTodoStatus(session, editing.id, status).catch(() => saved);
       statusTouched.current = true;
-      setFlowStatus("in_progress");
-      onSaved?.(started);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("notify.actionFailed"));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function onMarkDone() {
-    setBusy("done");
-    setError(null);
-    try {
-      if (target?.mode === "block") {
-        statusTouched.current = true;
-        await target.request.onStatus?.("done");
-        setFlowStatus("done");
+      setFlowStatus(status);
+      if (status === "done") {
+        onDone?.(synced);
+        onClose();
         return;
       }
-      if (!editing || !session) return;
-      const content = encodeTodoContent(bodyRef.current);
-      const prev = editing.data && typeof editing.data === "object" ? { ...editing.data } : {};
-      const { attachments: _drop, ...rest } = prev as Record<string, unknown> & { attachments?: unknown };
-      await updateTodo(session, editing.id, {
-        title: title.trim() || t("notify.untitled"),
-        ...(content ? { content } : {}),
-        startsAt: editing.startsAt ?? (typeof rest.start === "string" ? rest.start : null),
-        dueAt: editing.dueAt,
-        data: rest,
-      });
-      const done = await markTodoDone(session, editing.id);
-      onDone?.(done);
-      onClose();
+      onSaved?.(synced);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notify.actionFailed"));
     } finally {
@@ -296,7 +292,17 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
-      <DialogContent className="flex max-h-[min(44rem,88vh)] flex-col gap-0 overflow-hidden border-border/40 p-0 shadow-xl sm:max-w-2xl md:max-w-3xl">
+      <DialogContent
+        className="flex max-h-[min(44rem,88vh)] flex-col gap-0 overflow-hidden border-border/40 p-0 shadow-xl sm:max-w-2xl md:max-w-3xl"
+        onInteractOutside={(event) => {
+          const node = event.target;
+          if (node instanceof Element && node.closest("[data-todo-status-menu]")) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          const node = event.target;
+          if (node instanceof Element && node.closest("[data-todo-status-menu]")) event.preventDefault();
+        }}
+      >
         <DialogHeader className="shrink-0 gap-0 px-4 pt-4 pb-3 sm:px-5">
           <div className="flex items-center justify-between gap-3">
             <DialogDescription className={cn(textInset, "flex min-w-0 flex-wrap items-center gap-2 text-xs")}>
@@ -306,32 +312,40 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
               </span>
               {dueLabel ? <span className="tabular-nums text-muted-foreground/90">{dueLabel}</span> : null}
             </DialogDescription>
-            {canStart || canFinish || (editing && onOpenPage) ? (
+            {canChangeStatus || (editing && onOpenPage) ? (
               <div className="flex shrink-0 items-center gap-1">
-                {canStart ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                    disabled={Boolean(busy)}
-                    onClick={() => void onStart()}
-                  >
-                    {busy === "start" ? t("notify.saving") : t("todo.startTask")}
-                  </Button>
-                ) : null}
-                {canFinish ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                    disabled={Boolean(busy)}
-                    onClick={() => void onMarkDone()}
-                  >
-                    <CircleCheck size={14} />
-                    {t("todo.finishTask")}
-                  </Button>
+                {canChangeStatus ? (
+                  <div className="inline-flex h-8 items-stretch overflow-hidden rounded-full bg-foreground text-background">
+                    <button
+                      type="button"
+                      className="px-3 text-xs disabled:opacity-50"
+                      disabled={Boolean(busy)}
+                      onClick={() => void setStatus(nextStatus)}
+                    >
+                      {busy === "status" ? t("notify.saving") : t(nextStatusKey(flowStatus))}
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="inline-flex w-7 items-center justify-center border-l border-background/25 outline-none disabled:opacity-50"
+                        disabled={Boolean(busy)}
+                        aria-label={t("todo.otherStatus")}
+                      >
+                        <ChevronDown size={14} />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent data-todo-status-menu="" align="end" className="z-[80] min-w-28">
+                        {STATUS_ORDER.map((status) => (
+                          <DropdownMenuItem
+                            key={status}
+                            disabled={status === flowStatus || Boolean(busy)}
+                            className={status === nextStatus ? "font-semibold" : undefined}
+                            onSelect={() => void setStatus(status)}
+                          >
+                            {t(statusNameKey(status))}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ) : null}
                 {editing && onOpenPage ? (
                   <Button

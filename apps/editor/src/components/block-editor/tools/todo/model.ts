@@ -24,8 +24,8 @@ export type TodoBlockDetailRequest = {
   pageId: string;
   draft: { title: string; content?: string; status?: TodoStatus };
   onSubmit: (data: { title: string; content: string }) => void | Promise<void>;
-  /** 详情里确认后才改状态：未开始 → 进行中，进行中 → 已完成 */
-  onStatus?: (status: "in_progress" | "done") => void | Promise<void>;
+  /** 详情里改状态。主操作是下一状态，也可以直接改成任意状态 */
+  onStatus?: (status: TodoStatus) => void | Promise<void>;
 };
 
 export type TodoData = {

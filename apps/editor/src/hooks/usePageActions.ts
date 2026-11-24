@@ -200,8 +200,11 @@ export function usePageActions({
             merged = true;
           }
         }
+        const previousTitle = base?.id === next.id ? titleFromBody(base.body) : null;
         const saved = await saveRemote(session, { ...next, body, title: titleFromBody(body) });
-        if (saved.parentId && pageRef.current?.id !== saved.parentId) {
+        // 父页面里的子页面块只在标题变了才要改。每次保存都去 GET 父页面是多余的。
+        const titleChanged = previousTitle === null || previousTitle !== saved.title;
+        if (saved.parentId && pageRef.current?.id !== saved.parentId && titleChanged) {
           await mirrorParentLink(session, saved).catch(() => undefined);
         }
         if (stale(session)) {

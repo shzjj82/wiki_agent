@@ -29,6 +29,7 @@ import {
   type TodoData,
   type TodoBlockDetailRequest,
   type TodoItem,
+  type TodoStatus,
 } from "./todo/model";
 
 export type { TodoBlockDetailRequest, TodoData, TodoItem, TodoStatus } from "./todo/model";
@@ -41,7 +42,23 @@ const REMOVE_ICON = lucideSvg("trash", 16);
 const CANCEL_ICON = lucideSvg("circle-x", 16);
 const RESTORE_ICON = lucideSvg("rotate-ccw", 16);
 const ADD_ICON = lucideSvg("plus", 16);
+const CHEVRON_ICON = lucideSvg("chevron-down", 14);
 const EMPTY_ICON = lucideSvg("inbox", 48);
+
+const STATUS_ORDER: TodoStatus[] = ["pending", "in_progress", "done", "cancelled"];
+
+function nextTodoStatus(status: TodoStatus): TodoStatus {
+  if (status === "pending") return "in_progress";
+  if (status === "in_progress") return "done";
+  return "pending";
+}
+
+function nextStatusLabel(status: TodoStatus): string {
+  if (status === "pending") return t("todo.startTask");
+  if (status === "in_progress") return t("todo.finishTask");
+  if (status === "cancelled") return t("todo.restore");
+  return t("todo.reopen");
+}
 
 function textWidth(input: HTMLInputElement): number {
   const probe = document.createElement("span");
@@ -101,15 +118,21 @@ export class TodoBlockTool implements BlockTool {
   private pendingScrollId: string | null = null;
   private calendar: HTMLDivElement | null = null;
   private calendarAnchor: HTMLElement | null = null;
+  private statusMenu: HTMLDivElement | null = null;
+  private statusMenuAnchor: HTMLElement | null = null;
   private leaveTimers: number[] = [];
   private heightFrame = 0;
   private syncing = false;
   private booting = false;
+  /** 远端任务还没回到块里时，用加载态代替空列表 */
+  private loading = false;
+  private listLoaded = false;
   private listReady: Promise<string> | null = null;
   private watchedPage = "";
   private stopWatch: (() => void) | null = null;
   private getPageId: () => string;
   private onOpenDetail?: (request: TodoBlockDetailRequest) => void;
+  private confirmRemove?: (name: string) => Promise<boolean>;
 
   constructor({ data, readOnly, block, api, config }: BlockToolConstructorOptions<TodoData>) {
     this.data = normalize(data);
@@ -117,10 +140,15 @@ export class TodoBlockTool implements BlockTool {
     this.block = block;
     this.api = api;
     const conf = config as
-      | { getPageId?: () => string; onOpenDetail?: (request: TodoBlockDetailRequest) => void }
+      | {
+          getPageId?: () => string;
+          onOpenDetail?: (request: TodoBlockDetailRequest) => void;
+          confirmRemove?: (name: string) => Promise<boolean>;
+        }
       | undefined;
     this.getPageId = typeof conf?.getPageId === "function" ? conf.getPageId : () => "";
     this.onOpenDetail = typeof conf?.onOpenDetail === "function" ? conf.onOpenDetail : undefined;
+    this.confirmRemove = typeof conf?.confirmRemove === "function" ? conf.confirmRemove : undefined;
     this.wrapper.className = "cdx-todo";
     this.wrapper.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === "Backspace") {
@@ -137,6 +165,10 @@ export class TodoBlockTool implements BlockTool {
 
   render() {
     try {
+      if (this.data.listId && cachedListTasks(this.data.listId).length) {
+        this.mergeRemoteItems();
+      }
+      if (this.shouldShowLoading()) this.loading = true;
       this.paint();
     } catch (err) {
       console.warn("[todo-render]", err);
@@ -176,6 +208,7 @@ export class TodoBlockTool implements BlockTool {
     this.stopWatch?.();
     this.stopWatch = null;
     this.closeCalendar();
+    this.closeStatusMenu();
     for (const timer of this.leaveTimers) {
       window.clearTimeout(timer);
     }
@@ -204,13 +237,31 @@ export class TodoBlockTool implements BlockTool {
     return this.listReady;
   }
 
-  private applyListTasks() {
+  /** 打开文档时会先放一条没有正文的占位。它不是真实任务 */
+  private hasVisibleWork(): boolean {
+    return this.data.items.some((item) => item.text.trim() || item.remoteId);
+  }
+
+  /** 已登录且这份列表还没拉过：先显示加载，而不是那条空数据 */
+  private shouldShowLoading(): boolean {
+    if (this.listLoaded || this.loading) return false;
+    const pageId = this.getPageId().trim();
+    if (!pageId || !loadSession()) return false;
+    if (!this.data.listId && this.readOnly) return false;
+    return !this.hasVisibleWork();
+  }
+
+  private mergeRemoteItems() {
     const listId = this.data.listId;
     if (!listId) return;
     const remote = cachedListTasks(listId).map(todoToItem);
     const remoteIds = new Set(remote.map((item) => item.remoteId));
     const pending = this.data.items.filter((item) => item.text.trim() && !item.remoteId && !remoteIds.has(item.id));
     this.data.items = [...remote, ...pending];
+  }
+
+  private applyListTasks() {
+    this.mergeRemoteItems();
     if (this.leaveTimers.length) return;
     this.paint();
   }
@@ -219,8 +270,11 @@ export class TodoBlockTool implements BlockTool {
     if (this.booting) return this.data.listId ?? "";
     const session = loadSession();
     const pageId = this.getPageId().trim();
-    if (!session || !pageId) return "";
-    if (!this.data.listId && this.readOnly) return "";
+    if (!session || !pageId || (!this.data.listId && this.readOnly)) {
+      this.loading = false;
+      this.listLoaded = true;
+      return "";
+    }
     this.booting = true;
     const savedIds = [
       ...(this.data.ids ?? []),
@@ -228,7 +282,9 @@ export class TodoBlockTool implements BlockTool {
     ];
     const unsynced = this.data.items.filter((item) => item.text.trim() && !item.remoteId);
     try {
-      const list = await ensureTodoList(session, pageId, this.data.listId);
+      const previousListId = this.data.listId ?? "";
+      const list = await ensureTodoList(session, pageId, previousListId);
+      const listChanged = list.id !== previousListId;
       this.data.listId = list.id;
       this.stopWatch?.();
       this.watchedPage = list.id;
@@ -236,7 +292,8 @@ export class TodoBlockTool implements BlockTool {
         if (!this.wrapper.isConnected) return;
         this.applyListTasks();
       });
-      if (!this.readOnly) this.commit();
+      // 列表 id 没变时正文也没变。这里再 commit 会把整篇文档 PUT 一遍，并连带去读父页面标题。
+      if (!this.readOnly && listChanged) this.commit();
       await loadListTasks(session, pageId, list.id);
       await attachSavedTasks(session, pageId, list.id, savedIds, !this.readOnly);
       if (this.readOnly) return list.id;
@@ -263,6 +320,10 @@ export class TodoBlockTool implements BlockTool {
       return "";
     } finally {
       this.booting = false;
+      const wasLoading = this.loading;
+      this.loading = false;
+      this.listLoaded = true;
+      if (wasLoading && this.wrapper.isConnected) this.paint();
     }
   }
 
@@ -333,6 +394,7 @@ export class TodoBlockTool implements BlockTool {
 
   private paint() {
     this.closeCalendar();
+    this.closeStatusMenu();
     const focusId = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.todoFocus : undefined;
     const body = this.gantt ? this.ganttView() : this.listView();
     this.wrapper.replaceChildren(this.header(), body, this.footer());
@@ -473,6 +535,10 @@ export class TodoBlockTool implements BlockTool {
     const list = document.createElement("div");
     list.className = "cdx-todo__list";
     const items = this.visibleItems();
+    if (this.loading && !this.hasVisibleWork()) {
+      list.append(this.loadingState());
+      return list;
+    }
     if (!items.length) {
       list.append(this.emptyState(this.emptyTabMessage()));
       return list;
@@ -496,15 +562,28 @@ export class TodoBlockTool implements BlockTool {
     return empty;
   }
 
+  private loadingState(): HTMLElement {
+    const box = document.createElement("div");
+    box.className = "cdx-todo__loading";
+    box.setAttribute("role", "status");
+    const spinner = document.createElement("span");
+    spinner.className = "cdx-todo__spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    const text = document.createElement("span");
+    text.textContent = t("todo.loading");
+    box.append(spinner, text);
+    return box;
+  }
+
   private itemRow(item: TodoItem): HTMLElement {
     const shown = displayStatus(item, this.data.notify);
     const ended = isEnded(item.status);
     const row = document.createElement("div");
-    row.className = `cdx-todo__item is-${item.status}${shown === "in_progress" && item.status === "pending" ? " is-due-start" : ""}${this.onOpenDetail && !this.readOnly && item.status !== "cancelled" ? " is-openable" : ""}`;
-    if (this.onOpenDetail && !this.readOnly && item.status !== "cancelled") {
+    row.className = `cdx-todo__item is-${item.status}${shown === "in_progress" && item.status === "pending" ? " is-due-start" : ""}${this.onOpenDetail && !this.readOnly ? " is-openable" : ""}`;
+    if (this.onOpenDetail && !this.readOnly) {
       row.addEventListener("click", (event) => {
         const target = event.target;
-        if (!(target instanceof Element) || target.closest("button, input, a")) return;
+        if (!(target instanceof Element) || target.closest("button, input, a, .cdx-todo__flow")) return;
         this.openEditDetail(item);
       });
     }
@@ -643,8 +722,11 @@ export class TodoBlockTool implements BlockTool {
     remove.setAttribute("aria-label", t("todo.remove"));
     remove.addEventListener("click", () => {
       const label = item.text.trim() || t("todo.placeholder");
-      if (!window.confirm(t("todo.removeConfirm", { name: label }))) return;
-      this.removeItem(item.id);
+      const ask = this.confirmRemove;
+      if (!ask) return;
+      void ask(label).then((ok) => {
+        if (ok) this.removeItem(item.id);
+      });
     });
 
     const actions = document.createElement("div");
@@ -657,32 +739,140 @@ export class TodoBlockTool implements BlockTool {
     return row;
   }
 
-  /** 未开始 → 开始任务；进行中 → 完成任务。状态只在点击后改变 */
-  private flowButton(item: TodoItem, row: HTMLElement, check: HTMLButtonElement): HTMLButtonElement | null {
-    if (this.readOnly || isEnded(item.status)) return null;
-    const button = document.createElement("button");
-    button.type = "button";
-    if (item.status === "pending") {
-      button.className = "cdx-todo__flow";
-      button.textContent = t("todo.startTask");
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        item.status = "in_progress";
-        this.tab = "in_progress";
-        this.commit();
-        void this.syncRemoteTodos();
-        this.paint();
-      });
-      return button;
-    }
-    button.className = "cdx-todo__flow is-finish";
-    button.textContent = t("todo.finishTask");
-    button.addEventListener("click", (event) => {
+  /** 右上角：主按钮是下一状态，箭头里可以改成任意状态 */
+  private flowButton(item: TodoItem, row: HTMLElement, check: HTMLButtonElement): HTMLElement | null {
+    if (this.readOnly) return null;
+    const next = nextTodoStatus(item.status);
+    const box = document.createElement("div");
+    box.className = "cdx-todo__flow";
+
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "cdx-todo__flow-main";
+    main.textContent = nextStatusLabel(item.status);
+    main.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (row.classList.contains("is-striking") || row.classList.contains("is-leaving")) return;
-      this.finishItem(item, row, check);
+      this.applyStatus(item, next, row, check);
     });
-    return button;
+
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "cdx-todo__flow-more";
+    more.innerHTML = CHEVRON_ICON;
+    more.title = t("todo.otherStatus");
+    more.setAttribute("aria-label", t("todo.otherStatus"));
+    more.setAttribute("aria-haspopup", "menu");
+    more.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.openStatusMenu(box, item, row, check);
+    });
+
+    box.append(main, more);
+    return box;
+  }
+
+  private applyStatus(item: TodoItem, status: TodoStatus, row: HTMLElement, check: HTMLButtonElement) {
+    if (item.status === status) return;
+    if (row.classList.contains("is-striking") || row.classList.contains("is-leaving")) return;
+    this.closeStatusMenu();
+    if (status === "done" && this.tab !== "ended") {
+      this.finishItem(item, row, check);
+      return;
+    }
+    if (status === "cancelled" && this.tab !== "ended") {
+      item.status = "cancelled";
+      this.commit();
+      void this.syncRemoteTodos();
+      row.classList.add("is-leaving");
+      const fade = window.setTimeout(() => {
+        this.leaveTimers = this.leaveTimers.filter((timer) => timer !== fade);
+        this.paint();
+      }, 280);
+      this.leaveTimers.push(fade);
+      return;
+    }
+    item.status = status;
+    this.tab = status === "in_progress" ? "in_progress" : status === "pending" ? "pending" : "ended";
+    this.commit();
+    void this.syncRemoteTodos();
+    this.paint();
+  }
+
+  private openStatusMenu(anchor: HTMLElement, item: TodoItem, row: HTMLElement, check: HTMLButtonElement) {
+    if (this.statusMenu && this.statusMenuAnchor === anchor) {
+      this.closeStatusMenu();
+      return;
+    }
+    this.closeStatusMenu();
+    this.closeCalendar();
+    const next = nextTodoStatus(item.status);
+    const menu = document.createElement("div");
+    menu.className = "cdx-todo__status-menu";
+    menu.setAttribute("role", "menu");
+    menu.addEventListener("pointerdown", (event) => event.stopPropagation());
+    for (const status of STATUS_ORDER) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "cdx-todo__status-option";
+      option.setAttribute("role", "menuitem");
+      option.textContent = statusLabel(status);
+      if (status === item.status) {
+        option.classList.add("is-current");
+        option.setAttribute("aria-current", "true");
+      }
+      if (status === next) option.classList.add("is-next");
+      option.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (status === item.status) {
+          this.closeStatusMenu();
+          return;
+        }
+        this.applyStatus(item, status, row, check);
+      });
+      menu.append(option);
+    }
+    document.body.append(menu);
+    this.statusMenu = menu;
+    this.statusMenuAnchor = anchor;
+    anchor.classList.add("is-open");
+    this.placeStatusMenu(menu, anchor);
+    document.addEventListener("pointerdown", this.onStatusPointer, true);
+    document.addEventListener("keydown", this.onStatusKey, true);
+  }
+
+  private placeStatusMenu(menu: HTMLElement, anchor: HTMLElement) {
+    const rect = anchor.getBoundingClientRect();
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    let top = rect.bottom + 6;
+    if (top + height > window.innerHeight - 8) top = Math.max(8, rect.top - height - 6);
+    let left = rect.right - width;
+    if (left < 8) left = 8;
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+  }
+
+  private onStatusPointer = (event: Event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (this.statusMenu?.contains(target) || this.statusMenuAnchor?.contains(target)) return;
+    this.closeStatusMenu();
+  };
+
+  private onStatusKey = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    this.closeStatusMenu();
+  };
+
+  private closeStatusMenu() {
+    this.statusMenuAnchor?.classList.remove("is-open");
+    this.statusMenu?.remove();
+    this.statusMenu = null;
+    this.statusMenuAnchor = null;
+    document.removeEventListener("pointerdown", this.onStatusPointer, true);
+    document.removeEventListener("keydown", this.onStatusKey, true);
   }
 
   private finishItem(item: TodoItem, row: HTMLElement, check: HTMLButtonElement) {
@@ -782,6 +972,7 @@ export class TodoBlockTool implements BlockTool {
       return;
     }
     this.closeCalendar();
+    this.closeStatusMenu();
     const selected = item.start || item.end || todayIso();
     const [startYear, startMonth] = selected.split("-").map(Number);
     let year = startYear;
@@ -997,6 +1188,10 @@ export class TodoBlockTool implements BlockTool {
   private ganttView(): HTMLElement {
     const board = document.createElement("div");
     board.className = "cdx-todo__gantt";
+    if (this.loading && !this.hasVisibleWork()) {
+      board.append(this.loadingState());
+      return board;
+    }
     if (!this.data.items.length) {
       board.append(this.emptyState(t("todo.ganttEmpty")));
       return board;
@@ -1249,7 +1444,7 @@ export class TodoBlockTool implements BlockTool {
   }
 
   private openEditDetail(item: TodoItem) {
-    if (this.readOnly || item.status === "cancelled") {
+    if (this.readOnly) {
       return;
     }
     if (!this.onOpenDetail) {
@@ -1261,7 +1456,7 @@ export class TodoBlockTool implements BlockTool {
       draft: { title: item.text, content: item.content ?? "", status: displayStatus(item, this.data.notify) },
       onStatus: async (status) => {
         item.status = status;
-        this.tab = status === "in_progress" ? "in_progress" : "ended";
+        this.tab = status === "in_progress" ? "in_progress" : status === "pending" ? "pending" : "ended";
         this.commit();
         await this.syncRemoteTodos();
         this.paint();

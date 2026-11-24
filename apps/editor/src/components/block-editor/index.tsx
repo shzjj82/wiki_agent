@@ -29,6 +29,8 @@ import { useDocHistory } from "./useDocHistory";
 import { bindPaste } from "./paste";
 import { HeadingOutline } from "@/components/heading-outline";
 import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import "./blockEditor.css";
 
@@ -137,6 +139,13 @@ export function BlockEditor({
   pageIdRef.current = pageId;
   const onTodoDetailRef = useRef(onTodoDetail);
   onTodoDetailRef.current = onTodoDetail;
+  const [todoDeleteAsk, setTodoDeleteAsk] = useState<{ name: string; resolve: (ok: boolean) => void } | null>(null);
+  const confirmRemoveRef = useRef<(name: string) => Promise<boolean>>(async () => false);
+  confirmRemoveRef.current = (name) => new Promise((resolve) => setTodoDeleteAsk({ name, resolve }));
+  function answerRemoveTodo(ok: boolean) {
+    todoDeleteAsk?.resolve(ok);
+    setTodoDeleteAsk(null);
+  }
   const readOnlyRef = useRef(readOnly);
   readOnlyRef.current = readOnly;
   const initialRef = useRef(doc);
@@ -201,6 +210,7 @@ export function BlockEditor({
                 config: {
                   getPageId: () => pageIdRef.current ?? "",
                   onOpenDetail: (request: TodoBlockDetailRequest) => onTodoDetailRef.current?.(request),
+                  confirmRemove: (name: string) => confirmRemoveRef.current(name),
                 },
               },
             }),
@@ -617,6 +627,22 @@ export function BlockEditor({
         ref={holderRef}
       />
       {!embed && !isMobile && ready ? <HeadingOutline root={holderRef.current} /> : null}
+      <Dialog open={todoDeleteAsk !== null} onOpenChange={(open) => !open && answerRemoveTodo(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("todo.removeTitle")}</DialogTitle>
+            <DialogDescription>{t("todo.removeConfirm", { name: todoDeleteAsk?.name ?? "" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => answerRemoveTodo(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" className="bg-destructive text-white hover:bg-destructive/90" onClick={() => answerRemoveTodo(true)}>
+              {t("common.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {removedToast && !readOnly
         ? createPortal(
             <BlockRemovedToast
