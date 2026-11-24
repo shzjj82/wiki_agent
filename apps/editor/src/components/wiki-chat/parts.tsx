@@ -23,10 +23,10 @@ const skillHint: Record<SkillScope, "wikiAsk.skillHintFiles" | "wikiAsk.skillHin
 };
 
 const RESIZE_POS: Record<ResizeCorner, string> = {
-  nw: "top-0 left-0 cursor-nwse-resize border-t-2 border-l-2",
-  ne: "top-0 right-0 cursor-nesw-resize border-t-2 border-r-2",
-  sw: "bottom-0 left-0 cursor-nesw-resize border-b-2 border-l-2",
-  se: "bottom-0 right-0 cursor-nwse-resize border-b-2 border-r-2",
+  nw: "top-0 left-0 cursor-nwse-resize",
+  ne: "top-0 right-0 cursor-nesw-resize",
+  sw: "bottom-0 left-0 cursor-nesw-resize",
+  se: "bottom-0 right-0 cursor-nwse-resize",
 };
 
 export function ResizeHandle({
@@ -42,7 +42,7 @@ export function ResizeHandle({
     <button
       type="button"
       aria-label={label}
-      className={`absolute z-20 size-4 rounded-sm border-border/80 ${RESIZE_POS[corner]}`}
+      className={`absolute z-20 size-4 bg-transparent ${RESIZE_POS[corner]}`}
       onPointerDown={onPointerDown}
     />
   );

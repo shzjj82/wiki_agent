@@ -236,6 +236,7 @@ export const en: Messages = {
     list: "List",
     add: "Add todo",
     remove: "Delete",
+    removeConfirm: "Delete “{{name}}”? This cannot be undone.",
     placeholder: "Todo",
     emptyOpen: "No open todos",
     emptyActive: "No active todos",

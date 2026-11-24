@@ -234,6 +234,7 @@ export const zh = {
     list: "列表",
     add: "添加待办",
     remove: "删除",
+    removeConfirm: "确定删除「{{name}}」？删除后不能恢复。",
     placeholder: "待办内容",
     emptyOpen: "没有未完成的待办",
     emptyActive: "没有进行中的待办",

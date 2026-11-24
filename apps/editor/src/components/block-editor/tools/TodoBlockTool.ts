@@ -641,7 +641,11 @@ export class TodoBlockTool implements BlockTool {
     remove.hidden = this.readOnly;
     remove.title = t("todo.remove");
     remove.setAttribute("aria-label", t("todo.remove"));
-    remove.addEventListener("click", () => this.removeItem(item.id));
+    remove.addEventListener("click", () => {
+      const label = item.text.trim() || t("todo.placeholder");
+      if (!window.confirm(t("todo.removeConfirm", { name: label }))) return;
+      this.removeItem(item.id);
+    });
 
     const actions = document.createElement("div");
     actions.className = "cdx-todo__actions";
