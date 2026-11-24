@@ -14,7 +14,6 @@ import {
   refreshUnreadNoticeCount,
   markAllNoticesRead,
   markNoticeRead,
-  isUrgeTodo,
   noticeKind,
   pageIdFromNotice,
   peekNotifySnapshot,
@@ -88,7 +87,7 @@ function noticeKindKey(
   const kind = noticeKind(notice);
   if (kind === "todo.started") return "notify.noticeStarted";
   if (kind === "todo.progress") return "notify.noticeProgress";
-  if (kind === "todo.overdue") return "notify.noticeOverdue";
+  if (kind === "todo.overdue" || kind === "todo.due") return "notify.noticeOverdue";
   return null;
 }
 
@@ -460,11 +459,6 @@ function TodoList({
               >
                 {status}
               </span>
-              {isUrgeTodo(todo) ? (
-                <span className="shrink-0 rounded-full bg-[#fde8e4] px-1.5 py-0.5 text-[10px] leading-none text-[#c2410c]">
-                  {t("todo.urge")}
-                </span>
-              ) : null}
               {due ? (
                 <span className="ml-auto min-w-0 truncate text-right text-[10px] leading-none tabular-nums text-muted-foreground/85">
                   {due}
@@ -520,7 +514,13 @@ function NoticeList({
             onClick={() => onOpen(notice)}
           >
             {unread ? <span className="size-1.5 shrink-0 rounded-full bg-red-500" /> : <span className="size-1.5 shrink-0" />}
-            {kind ? <span className="shrink-0 text-[11px] leading-none text-muted-foreground">{kind}</span> : null}
+            {kindKey === "notify.noticeOverdue" ? (
+              <span className="shrink-0 rounded-full bg-[#fde8e4] px-1.5 py-0.5 text-[10px] leading-none text-[#c2410c]">
+                {kind}
+              </span>
+            ) : kind ? (
+              <span className="shrink-0 text-[11px] leading-none text-muted-foreground">{kind}</span>
+            ) : null}
             <span className="min-w-0 flex-1 truncate text-[13px] leading-5 text-foreground">{line}</span>
             {when ? <span className="shrink-0 text-[11px] leading-none tabular-nums text-muted-foreground">{when}</span> : null}
           </button>

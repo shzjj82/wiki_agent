@@ -20,7 +20,6 @@ import {
   contentDocumentFromTodo,
   encodeTodoContent,
   fineTodoStatus,
-  isUrgeTodo,
   getTodo,
   markTodoDone,
   syncTodoStatus,
@@ -32,7 +31,6 @@ import {
 import { saveAttachment, type AttachmentData } from "@/store/fileStore";
 import type { RemoteSession } from "@/store/remoteStore";
 import type { TodoBlockDetailRequest, TodoStatus } from "@/components/block-editor/tools/TodoBlockTool";
-import { isUrge } from "@/components/block-editor/tools/todo/model";
 
 export type TodoDetailTarget =
   | { mode: "edit"; todo: NotifyTodo }
@@ -160,11 +158,6 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
   const blockRequest = target?.mode === "block" ? target.request : null;
   const canStart = !creating && flowStatus === "pending" && (Boolean(editing) || Boolean(blockRequest?.onStatus));
   const canFinish = !creating && flowStatus === "in_progress" && (Boolean(editing) || Boolean(blockRequest?.onStatus));
-  const urge = editing
-    ? isUrgeTodo({ ...editing, status: flowStatus })
-    : blockRequest
-      ? isUrge({ status: flowStatus, end: blockRequest.draft.end ?? "" })
-      : false;
 
   async function uploadFile(file: File): Promise<AttachmentData> {
     const { data } = await saveAttachment(session, file);
@@ -311,11 +304,6 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
               <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
                 {status}
               </span>
-              {urge ? (
-                <span className="rounded-full bg-[#fde8e4] px-2 py-0.5 text-[10px] font-medium leading-none text-[#c2410c]">
-                  {t("todo.urge")}
-                </span>
-              ) : null}
               {dueLabel ? <span className="tabular-nums text-muted-foreground/90">{dueLabel}</span> : null}
             </DialogDescription>
             {canStart || canFinish || (editing && onOpenPage) ? (

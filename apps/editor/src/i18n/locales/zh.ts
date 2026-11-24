@@ -226,7 +226,6 @@ export const zh = {
     cancel: "终止任务",
     restore: "恢复任务",
     overdue: "已逾期",
-    urge: "催办",
     start: "开始",
     end: "完成",
     notify: "通知",

@@ -228,7 +228,6 @@ export const en: Messages = {
     cancel: "Cancel task",
     restore: "Restore task",
     overdue: "Overdue",
-    urge: "Reminder",
     start: "Start",
     end: "End",
     notify: "Notify",

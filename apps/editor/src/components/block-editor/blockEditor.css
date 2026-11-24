@@ -894,11 +894,6 @@ html.is-image-resizing * {
   color: #a35a5a;
 }
 
-.notion-editor .cdx-todo__badge.is-urge {
-  background: #fde8e4;
-  color: #c2410c;
-}
-
 .notion-editor .cdx-todo__item.is-openable {
   cursor: pointer;
 }
