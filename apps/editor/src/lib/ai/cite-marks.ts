@@ -6,14 +6,54 @@ function citePattern(): RegExp {
 }
 
 export function hasCiteMarks(content: string): boolean {
-  return citePattern().test(content);
+  return /\{\{cite:\d+\}\}/.test(content);
+}
+
+/** 没写 {{cite:n}} 时，把出处嵌进正文，不要单独垫在气泡最下面。 */
+export function withCiteMarks(content: string, sources: WikiSource[]): string {
+  if (!sources.length) {
+    return content;
+  }
+  let text = content;
+  const used = new Set(
+    [...text.matchAll(/\{\{cite:(\d+)\}\}/g)].map((match) => Number(match[1])),
+  );
+  for (let index = 0; index < sources.length; index += 1) {
+    if (used.has(index)) {
+      continue;
+    }
+    const label = citeLabel(sources[index]!);
+    if (!label) {
+      continue;
+    }
+    const wrapped = `《${label}》`;
+    const at = text.indexOf(wrapped);
+    const from = at >= 0 ? at : text.indexOf(label);
+    const size = at >= 0 ? wrapped.length : label.length;
+    if (from < 0) {
+      continue;
+    }
+    text = `${text.slice(0, from)}{{cite:${index}}}${text.slice(from + size)}`;
+    used.add(index);
+  }
+  const leftover = sources.map((_, index) => index).filter((index) => !used.has(index));
+  if (!leftover.length) {
+    return text;
+  }
+  const marks = leftover.map((index) => `{{cite:${index}}}`).join("");
+  const cut = text.search(/\n\n/);
+  if (cut < 0) {
+    return `${text.trimEnd()} ${marks}`;
+  }
+  return `${text.slice(0, cut)} ${marks}${text.slice(cut)}`;
 }
 
 const TOKEN = "\u0001";
 
 /** 复制时把标记还原成书名，不把 {{cite:0}} 带进剪贴板。 */
 export function citePlain(content: string, sources: WikiSource[] | undefined): string {
-  return content.replace(citePattern(), (_all, index: string) => {
+  const text = sources?.length ? withCiteMarks(content, sources) : content;
+  return text.replace(citePattern(), (_all, index: string) => {
     const source = sources?.[Number(index)];
     return source ? `《${citeLabel(source)}》` : "";
   });
