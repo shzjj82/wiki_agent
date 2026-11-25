@@ -1,6 +1,7 @@
 import { useMemo, type MouseEvent } from "react";
 import { renderChatMarkdown } from "@/lib/ai/markdown";
-import { desktopExternalUrl, isDesktopApp, openDesktopUrl } from "@/lib/ai/skills";
+import { desktopExternalUrl, isDesktopApp } from "@/lib/ai/skills";
+import { openLocateUrl } from "@/lib/locate/run";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -30,7 +31,7 @@ export function ChatMarkdown({ content, className, compact }: Props) {
     }
     event.preventDefault();
     event.stopPropagation();
-    void openDesktopUrl(url);
+    void openLocateUrl(url);
   }
   return (
     <div

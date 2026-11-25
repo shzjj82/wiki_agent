@@ -36,6 +36,7 @@ import { useIsMobile } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { HistoryPanel } from "./HistoryPanel";
 import { useFloatingFrame, windowBox } from "./frame";
+import type { LocateTarget } from "@/lib/locate/target";
 import { asksAboutTodos, capImages, formatTodos, MESSAGE_LIMIT, readUpload, skillErrorMessage, userContent } from "./prompt";
 import { ChatComposer, ChatMessages, PendingSkills, ResizeHandle, SkillPermissions, skillLabel } from "./parts";
 
@@ -46,9 +47,10 @@ type Props = {
   loadPages?: () => Promise<SearchDoc[]>;
   onClose: () => void;
   onLogin: () => void;
+  onLocate?: (target: LocateTarget | null) => void;
 };
 
-export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLogin }: Props) {
+export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLogin, onLocate }: Props) {
   const { t: tr } = useTranslation();
   const desktop = isDesktopApp();
   const isMobile = useIsMobile();
@@ -367,7 +369,13 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
         },
       );
       const parsed = extractSkills(result.reply.trim() || tr("spotlight.emptyReply"));
-      setBubbles((prev) => prev.map((item) => (item.id === assistantId ? { ...item, content: parsed.text || item.content } : item)));
+      setBubbles((prev) =>
+        prev.map((item) =>
+          item.id === assistantId
+            ? { ...item, content: parsed.text || item.content, ...(result.sources?.length ? { sources: result.sources } : {}) }
+            : item,
+        ),
+      );
       if (desktop && parsed.skills.length) {
         setPendingSkills(parsed.skills);
       }
@@ -542,6 +550,7 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
         copiedId={copiedId}
         onCopy={(item) => void copyReply(item)}
         onRegenerate={regenerate}
+        onLocate={(target) => onLocate?.(target)}
       />
 
       {desktop && pendingSkills.length ? (

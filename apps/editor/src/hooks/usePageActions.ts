@@ -10,6 +10,8 @@ import { fileKind, isImageFile } from "@/lib/document/fileKinds";
 import { importSpreadsheet, importVideo, importWord, mergeImported, readInsertable } from "@/lib/document/import";
 import { insertEditorBlocksAt } from "@/lib/document/insertBlocks";
 import type { ImportChoice } from "@/components/import-dialog";
+import { openLocateUrl, runLocate } from "@/lib/locate/run";
+import { pageTarget, textInPage, type LocateTarget } from "@/lib/locate/target";
 import { writeAppLocation } from "@/lib/route";
 import { useWorkspace } from "@/layouts/workspace/context";
 import {
@@ -377,7 +379,7 @@ export function usePageActions({
       await bindTodoPage(session, todo.id, pageId);
     }
     rememberTodoPage(todo.id, pageId);
-    await openPage(pageId);
+    await locate(pageTarget(pageId));
   }
 
   function onEdit(body: EditorJsDocument) {
@@ -576,11 +578,16 @@ export function usePageActions({
     }
   }
 
+  async function locate(target: LocateTarget) {
+    await runLocate(target, {
+      openPage: (pageId, history) => openPage(pageId, history),
+      revealText: (text) => setReveal({ text, nonce: Date.now() }),
+      openUrl: openLocateUrl,
+    });
+  }
+
   async function revealPage(id: string, query: string) {
-    if (pageRef.current?.id !== id) {
-      await openPage(id);
-    }
-    setReveal({ text: query, nonce: Date.now() });
+    await locate(textInPage(id, query));
   }
 
   /** 编辑器会按新语言重建，先把编辑器里的最新内容存下来 */
@@ -782,5 +789,6 @@ export function usePageActions({
     confirmRemove,
     exportPage,
     revealPage,
+    locate,
   };
 }

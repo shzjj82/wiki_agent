@@ -1,4 +1,5 @@
 import type { AiAttachment, AiChatMessage, AiChatResult, EditorJsDocument } from "@myblog/shared";
+import { readSources, type WikiSource } from "@/lib/ai/sources";
 import { gatewayUrl, loadSession, prepareSession } from "@/store/remoteStore";
 import { t } from "@/i18n";
 
@@ -195,7 +196,7 @@ export async function aiChat(
   },
   signal?: AbortSignal,
   handlers?: AiChatStreamHandlers,
-): Promise<AiChatResult> {
+): Promise<AiChatResult & { sources?: WikiSource[] }> {
   const token = await requireToken();
   const messages = withDocumentContext(input.messages, input.document);
 
@@ -223,7 +224,7 @@ export async function aiChat(
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/event-stream")) {
-    const json = (await response.json().catch(() => null)) as Envelope<{ reply?: string; conversationId?: string }> | null;
+    const json = (await response.json().catch(() => null)) as Envelope<{ reply?: string; conversationId?: string; sources?: unknown }> | null;
     if (!response.ok || !json?.success) {
       throwFromEnvelope(response.status, json);
     }
@@ -232,7 +233,8 @@ export async function aiChat(
       throw new Error("AI_EMPTY");
     }
     handlers?.onDelta?.(reply);
-    return { reply, conversationId: pickConversationId(json.data?.conversationId) };
+    const sources = readSources(json.data?.sources);
+    return { reply, conversationId: pickConversationId(json.data?.conversationId), ...(sources.length ? { sources } : {}) };
   }
 
   if (!response.ok) {
@@ -255,6 +257,7 @@ export async function aiChat(
   let buf = "";
   let reply = "";
   let conversationId = pickConversationId(input.conversationId);
+  let sources: WikiSource[] = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -271,11 +274,11 @@ export async function aiChat(
       }
       const data = line.slice(5).trim();
       if (data === "[DONE]") {
-        return { reply: reply.trim() || reply, conversationId };
+        return { reply: reply.trim() || reply, conversationId, ...(sources.length ? { sources } : {}) };
       }
-      let ev: { delta?: string; reply?: string; error?: string; conversationId?: string };
+      let ev: { delta?: string; reply?: string; error?: string; conversationId?: string; sources?: unknown };
       try {
-        ev = JSON.parse(data) as { delta?: string; reply?: string; error?: string; conversationId?: string };
+        ev = JSON.parse(data) as { delta?: string; reply?: string; error?: string; conversationId?: string; sources?: unknown };
       } catch {
         continue;
       }
@@ -290,6 +293,10 @@ export async function aiChat(
         reply = ev.reply;
       }
       conversationId = pickConversationId(ev.conversationId) ?? conversationId;
+      const nextSources = readSources(ev.sources);
+      if (nextSources.length) {
+        sources = nextSources;
+      }
     }
   }
 
@@ -297,7 +304,7 @@ export async function aiChat(
   if (!trimmed) {
     throw new Error("AI_EMPTY");
   }
-  return { reply: trimmed, conversationId };
+  return { reply: trimmed, conversationId, ...(sources.length ? { sources } : {}) };
 }
 
 async function agentsJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -374,7 +381,7 @@ export type AgentConversationSummary = {
 };
 
 export type AgentConversationDetail = AgentConversationSummary & {
-  messages: { id: string; role: "user" | "assistant"; content: string }[];
+  messages: { id: string; role: "user" | "assistant"; content: string; sources?: WikiSource[] }[];
 };
 
 function mapSummary(row: Record<string, unknown>, fallback: string): AgentConversationSummary | null {
@@ -413,10 +420,12 @@ function mapMessages(data: unknown): AgentConversationDetail["messages"] {
     if (!content) {
       continue;
     }
+    const sources = readSources(row.sources);
     out.push({
       id: asText(row.id) || `${role}-${out.length}`,
       role,
       content,
+      ...(sources.length ? { sources } : {}),
     });
   }
   return out;

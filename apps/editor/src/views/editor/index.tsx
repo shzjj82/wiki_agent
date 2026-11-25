@@ -174,6 +174,7 @@ export function EditorView() {
     confirmRemove,
     exportPage,
     revealPage,
+    locate,
   } = usePageActions({
     page,
     setPage,
@@ -495,6 +496,11 @@ export function EditorView() {
         onLogin={() => {
           setWikiOpen(false);
           openLogin();
+        }}
+        onLocate={(target) => {
+          if (target) {
+            void locate(target);
+          }
         }}
       />
       {workEnabled ? (

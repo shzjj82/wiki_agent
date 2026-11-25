@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { emptyEditorDocument, type EditorJsDocument } from "@myblog/shared";
 import { ChevronDown, FileText } from "lucide-react";
 import { BlockEditor } from "@/components/block-editor";
+import { Locate } from "@/components/locate";
+import { pageTarget } from "@/lib/locate/target";
 import { imageBlockData } from "@/components/block-editor/tools/ImageBlockTool";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -22,6 +24,7 @@ import {
   encodeTodoContent,
   fineTodoStatus,
   getTodo,
+  pageIdFromTodo,
   syncTodoStatus,
   todoAttachments,
   updateTodo,
@@ -348,17 +351,21 @@ export function TodoDetailDialog({ session, target, dueLabel, onClose, onSaved, 
                   </div>
                 ) : null}
                 {editing && onOpenPage ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                    disabled={Boolean(busy)}
-                    onClick={() => void openPage()}
+                  <Locate
+                    target={pageIdFromTodo(editing) ? pageTarget(pageIdFromTodo(editing)!) : null}
+                    onLocate={() => openPage()}
                   >
-                    <FileText size={14} />
-                    {t("notify.openPage")}
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                      disabled={Boolean(busy)}
+                    >
+                      <FileText size={14} />
+                      {t("notify.openPage")}
+                    </Button>
+                  </Locate>
                 ) : null}
               </div>
             ) : null}

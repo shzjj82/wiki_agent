@@ -1,12 +1,15 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 import { Copy, Paperclip, RefreshCw, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Locate } from "@/components/locate";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ChatMarkdown } from "@/components/editor-spotlight/ChatMarkdown";
 import { PendingAttachments } from "@/components/editor-spotlight/ChatAttachments";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { AI_FILE_ACCEPT, type ChatBubble, type LocalAttachment } from "@/lib/ai/chat";
+import { sourceDirection, sourceTypeKey, type WikiSource } from "@/lib/ai/sources";
+import { locateFromSource, parseLocate, type LocateTarget } from "@/lib/locate/target";
 import { skillPreview, skillScope, type SkillCall, type SkillGrants, type SkillScope } from "@/lib/ai/skills";
 import type { ResizeCorner } from "./frame";
 
@@ -48,6 +51,27 @@ export function ResizeHandle({
   );
 }
 
+function SourceList({ sources, onLocate }: { sources: WikiSource[]; onLocate: (target: LocateTarget | null) => void }) {
+  const { t: tr } = useTranslation();
+  if (!sources.length) {
+    return null;
+  }
+  return (
+    <div className="mt-2 space-y-1 border-t border-border/50 pt-2">
+      <p className="text-muted-foreground text-[11px]">{tr("wikiAsk.sources")}</p>
+      {sources.map((source) => (
+        <Locate key={`${source.docId}-${source.sourceType}-${source.sourceName ?? ""}`} target={parseLocate(source.locate) ?? locateFromSource(source)} onLocate={onLocate}>
+          <button type="button" className="hover:bg-background/70 flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs">
+            <span className="bg-background shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">{tr(sourceTypeKey(source.sourceType))}</span>
+            <span className="min-w-0 flex-1 truncate">{sourceDirection(source)}</span>
+            <span className="text-muted-foreground shrink-0">{tr("wikiAsk.sourceJump")}</span>
+          </button>
+        </Locate>
+      ))}
+    </div>
+  );
+}
+
 function AssistantBubble({ children }: { children: ReactNode }) {
   return (
     <div className="flex justify-start">
@@ -81,6 +105,7 @@ export function ChatMessages({
   copiedId,
   onCopy,
   onRegenerate,
+  onLocate,
 }: {
   bubbles: ChatBubble[];
   sending: boolean;
@@ -88,6 +113,7 @@ export function ChatMessages({
   copiedId: string | null;
   onCopy: (item: ChatBubble) => void;
   onRegenerate: (id: string) => void;
+  onLocate: (target: LocateTarget | null) => void;
 }) {
   const { t: tr } = useTranslation();
   return (
@@ -105,6 +131,7 @@ export function ChatMessages({
           ) : item.role === "assistant" ? (
             <AssistantBubble key={item.id}>
               <ChatMarkdown content={item.content || (sending && item.id === replyingId ? tr("spotlight.thinking") : "")} />
+              {item.id !== replyingId && item.sources?.length ? <SourceList sources={item.sources} onLocate={onLocate} /> : null}
               {item.content.trim() && item.id !== replyingId ? (
                 <div className="-ml-1 mt-1 flex items-center gap-0.5">
                   <Button type="button" variant="ghost" size="icon-xs" aria-label={copiedId === item.id ? tr("wikiAsk.copied") : tr("wikiAsk.copy")} onClick={() => onCopy(item)}>

@@ -1,4 +1,5 @@
 import type { AiAttachment, AiChatMessage } from "@myblog/shared";
+import type { WikiSource } from "@/lib/ai/sources";
 import type EditorJS from "@editorjs/editorjs";
 import { t } from "@/i18n";
 
@@ -14,6 +15,8 @@ export type ChatBubble = {
   attachments?: LocalAttachment[];
   /** 技能执行结果等系统提示，不当成普通用户气泡 */
   notice?: boolean;
+  /** 知识库命中的出处，可跳到页面或文件 */
+  sources?: WikiSource[];
 };
 
 const TEXT_EXTS = new Set([

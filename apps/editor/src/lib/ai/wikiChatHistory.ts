@@ -43,6 +43,7 @@ export function detailToThread(item: AgentConversationDetail): WikiThread {
       id: message.id || uid(),
       role: message.role,
       content: message.content,
+      ...(message.sources?.length ? { sources: message.sources } : {}),
     })),
   };
 }
