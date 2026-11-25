@@ -199,8 +199,9 @@ function proxyWsUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, gate
 
 function cacheControlFor(file: string): string {
   if (file.endsWith(".html") || file.endsWith("/sw.js") || file.endsWith(".webmanifest")) {
-    // 页面、安装清单和 Service Worker 不缓存：部署后要立刻生效
-    return "no-cache";
+    // no-store：Mac WebView 会把固定端口上的旧 index.html 留在磁盘缓存里。
+    // 更新后它还去要上一版的入口脚本，WebKit 就报 Importing a module script failed。
+    return "no-store";
   }
   return HASHED_ASSET.test(file) ? "public, max-age=31536000, immutable" : "public, max-age=3600";
 }

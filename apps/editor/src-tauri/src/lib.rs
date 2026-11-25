@@ -800,7 +800,12 @@ fn relaunch_app(app: tauri::AppHandle) {
 }
 
 fn open_local_app(window: &tauri::WebviewWindow, port: u16) -> Result<(), String> {
-    let url = format!("http://127.0.0.1:{port}/app")
+    // 端口是固定的。不带这次启动的标记时，WebKit 会复用上一版缓存的页面。
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0);
+    let url = format!("http://127.0.0.1:{port}/app?boot={stamp}")
         .parse::<tauri::Url>()
         .map_err(|err| err.to_string())?;
     window.navigate(url).map_err(|err| err.to_string())
