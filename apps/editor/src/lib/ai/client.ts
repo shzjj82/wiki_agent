@@ -451,3 +451,14 @@ export async function getAgentConversation(id: string, untitled: string): Promis
 export async function deleteAgentConversation(id: string): Promise<void> {
   await agentsJson<unknown>(`/wiki/agents/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+export type OcrItem = { url?: string; text?: string; error?: string };
+
+/** 把已上传的图片地址交给云端 OCR，返回每张图的识别结果。 */
+export async function recognizeImageUrls(urls: string[]): Promise<OcrItem[]> {
+  const data = await agentsJson<{ items?: OcrItem[] }>("/wiki/agents/ocr", {
+    method: "POST",
+    body: JSON.stringify({ imageUrls: urls }),
+  });
+  return Array.isArray(data?.items) ? data.items : [];
+}

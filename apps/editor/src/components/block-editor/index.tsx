@@ -26,7 +26,10 @@ import { menuIcons } from "./menuIcons";
 import { bindToolbarAnchor, blockIconKey } from "./toolbarAnchor";
 import { revealText } from "./revealText";
 import { useDocHistory } from "./useDocHistory";
-import { bindPaste } from "./paste";
+import { bindPaste, insertPastedImages, insertPastedText, type PastePlace } from "./paste";
+import { ocrPlainText } from "./imagePaste";
+import { recognizeImageUrls } from "@/lib/ai/client";
+import { aiErrorMessage } from "@/lib/ai/chat";
 import { HeadingOutline } from "@/components/heading-outline";
 import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
 import { Button } from "@/components/ui/button";
@@ -140,6 +143,16 @@ export function BlockEditor({
   const onTodoDetailRef = useRef(onTodoDetail);
   onTodoDetailRef.current = onTodoDetail;
   const [todoDeleteAsk, setTodoDeleteAsk] = useState<{ name: string; resolve: (ok: boolean) => void } | null>(null);
+  const [imagePaste, setImagePaste] = useState<{
+    files: File[];
+    place: PastePlace;
+    previewUrl: string;
+    busy: boolean;
+    error: string;
+  } | null>(null);
+  const imagePasteRef = useRef(imagePaste);
+  imagePasteRef.current = imagePaste;
+  const onImagePasteRef = useRef<(files: File[], place: PastePlace) => void>(() => {});
   const confirmRemoveRef = useRef<(name: string) => Promise<boolean>>(async () => false);
   confirmRemoveRef.current = (name) => new Promise((resolve) => setTodoDeleteAsk({ name, resolve }));
   function answerRemoveTodo(ok: boolean) {
@@ -352,8 +365,7 @@ export function BlockEditor({
     const unbindPaste = bindPaste(holder, editor, {
       isAlive: () => alive,
       isReadOnly: () => readOnlyRef.current,
-      getUpload: () => onUploadRef.current,
-      onUploadError: (error) => onUploadErrorRef.current?.(error instanceof Error ? error.message : t("attachment.uploadFailed")),
+      onImagePaste: (files, place) => onImagePasteRef.current(files, place),
     });
 
     let destroyed = false;
@@ -556,6 +568,112 @@ export function BlockEditor({
     });
   }, [history.canUndo, history.canRedo]);
 
+  function openImagePaste(files: File[], place: PastePlace) {
+    if (imagePasteRef.current || files.length === 0) {
+      return;
+    }
+    const previewUrl = URL.createObjectURL(files[0]!);
+    const next = { files, place, previewUrl, busy: false, error: "" };
+    imagePasteRef.current = next;
+    setImagePaste(next);
+  }
+  onImagePasteRef.current = openImagePaste;
+
+  function closeImagePaste() {
+    const current = imagePasteRef.current;
+    if (!current || current.busy) {
+      return;
+    }
+    URL.revokeObjectURL(current.previewUrl);
+    imagePasteRef.current = null;
+    setImagePaste(null);
+  }
+
+  function imagePasteError(error: unknown): string {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "UNAUTHORIZED") {
+      return t("imagePaste.needsLogin");
+    }
+    if (code === "OCR_NEEDS_REMOTE") {
+      return t("imagePaste.needsRemote");
+    }
+    if (code === "AI_OCR_NOT_CONFIGURED") {
+      return t("imagePaste.notConfigured");
+    }
+    if (code === "OCR_TIMEOUT" || code === "AI_TIMEOUT") {
+      return t("imagePaste.timeout");
+    }
+    if (code === "OCR_EMPTY") {
+      return t("imagePaste.empty");
+    }
+    const text = code ? aiErrorMessage(code) : "";
+    return text || t("imagePaste.failed");
+  }
+
+  async function importPastedImage() {
+    const ask = imagePasteRef.current;
+    const editor = editorInstanceRef.current;
+    const upload = onUploadRef.current;
+    if (!ask || ask.busy) {
+      return;
+    }
+    closeImagePaste();
+    if (!editor || !upload) {
+      return;
+    }
+    try {
+      await insertPastedImages(editor, ask.files, upload, () => editorInstanceRef.current === editor, ask.place);
+    } catch (error) {
+      onUploadErrorRef.current?.(error instanceof Error ? error.message : t("attachment.uploadFailed"));
+    }
+  }
+
+  async function importPastedText() {
+    const ask = imagePasteRef.current;
+    const editor = editorInstanceRef.current;
+    const upload = onUploadRef.current;
+    if (!ask || ask.busy || !editor || !upload) {
+      return;
+    }
+    if (ask.files.length > 9) {
+      const error = t("imagePaste.tooMany", { count: 9 });
+      const next = { ...ask, error };
+      imagePasteRef.current = next;
+      setImagePaste(next);
+      return;
+    }
+    const pending = { ...ask, busy: true, error: "" };
+    imagePasteRef.current = pending;
+    setImagePaste(pending);
+    try {
+      const urls: string[] = [];
+      for (const file of ask.files) {
+        const uploaded = await upload(file);
+        const url = uploaded.url ?? "";
+        if (!/^https?:\/\//i.test(url)) {
+          throw new Error("OCR_NEEDS_REMOTE");
+        }
+        urls.push(url);
+      }
+      const text = ocrPlainText(await recognizeImageUrls(urls));
+      if (editorInstanceRef.current !== editor) {
+        return;
+      }
+      insertPastedText(editor, text, ask.place);
+      URL.revokeObjectURL(ask.previewUrl);
+      imagePasteRef.current = null;
+      setImagePaste(null);
+    } catch (error) {
+      const current = imagePasteRef.current;
+      if (!current || current.previewUrl !== ask.previewUrl) {
+        return;
+      }
+      const next = { ...current, busy: false, error: imagePasteError(error) };
+      imagePasteRef.current = next;
+      setImagePaste(next);
+    }
+  }
+
   /** 呼出 AI */
   function openAi() {
     const editor = editorInstanceRef.current;
@@ -627,6 +745,51 @@ export function BlockEditor({
         ref={holderRef}
       />
       {!embed && !isMobile && ready ? <HeadingOutline root={holderRef.current} /> : null}
+      <Dialog
+        open={imagePaste !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeImagePaste();
+          }
+        }}
+      >
+        <DialogContent
+          onEscapeKeyDown={(event) => {
+            if (imagePaste?.busy) {
+              event.preventDefault();
+            }
+          }}
+          onPointerDownOutside={(event) => {
+            if (imagePaste?.busy) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{t("imagePaste.title")}</DialogTitle>
+            <DialogDescription>
+              {imagePaste && imagePaste.files.length > 1
+                ? t("imagePaste.descriptionMany", { count: imagePaste.files.length })
+                : t("imagePaste.description")}
+            </DialogDescription>
+          </DialogHeader>
+          {imagePaste ? (
+            <img src={imagePaste.previewUrl} alt="" className="max-h-40 w-full rounded-lg bg-muted object-contain" />
+          ) : null}
+          {imagePaste?.error ? <p className="text-destructive text-xs">{imagePaste.error}</p> : null}
+          <DialogFooter className="flex-col items-stretch">
+            <Button type="button" disabled={imagePaste?.busy} onClick={() => void importPastedImage()}>
+              {t("imagePaste.asImage")}
+            </Button>
+            <Button type="button" variant="outline" disabled={imagePaste?.busy} onClick={() => void importPastedText()}>
+              {imagePaste?.busy ? t("imagePaste.recognizing") : t("imagePaste.asText")}
+            </Button>
+            <Button type="button" variant="ghost" disabled={imagePaste?.busy} onClick={closeImagePaste}>
+              {t("common.cancel")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={todoDeleteAsk !== null} onOpenChange={(open) => !open && answerRemoveTodo(false)}>
         <DialogContent>
           <DialogHeader>
