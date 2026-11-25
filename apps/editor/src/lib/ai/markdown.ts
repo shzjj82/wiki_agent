@@ -9,18 +9,26 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function renderInline(text: string): string {
-  let out = escapeHtml(text);
-  out = out.replace(/`([^`\n]+)`/g, '<code class="md-inline-code">$1</code>');
-  out = out.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>',
-  );
+function renderEmphasis(text: string): string {
+  let out = text;
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__([^_]+)__/g, "<strong>$1</strong>");
   out = out.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
   out = out.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>");
   return out;
+}
+
+function renderInline(text: string): string {
+  let out = escapeHtml(text);
+  out = out.replace(/`([^`\n]+)`/g, '<code class="md-inline-code">$1</code>');
+  // 链接先摘出来。否则后面的斜体规则会把网址里的下划线和 target="_blank" 配成一对，地址被截断。
+  const links: string[] = [];
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_all, label: string, href: string) => {
+    links.push(`<a href="${href}" target="_blank" rel="noopener">${renderEmphasis(label)}</a>`);
+    return `\u0000${links.length - 1}\u0000`;
+  });
+  out = renderEmphasis(out);
+  return out.replace(/\u0000(\d+)\u0000/g, (_all, index: string) => links[Number(index)] ?? "");
 }
 
 function splitTableRow(line: string): string[] {
