@@ -8,6 +8,7 @@ import {
   getAgentConversation,
   listAgentConversations,
 } from "@/lib/ai/client";
+import { citePlain } from "@/lib/ai/cite-marks";
 import { aiErrorMessage, toApiAttachments, uid, type ChatBubble, type LocalAttachment } from "@/lib/ai/chat";
 import {
   SKILL_SYSTEM,
@@ -36,7 +37,7 @@ import { useIsMobile } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { HistoryPanel } from "./HistoryPanel";
 import { useFloatingFrame, windowBox } from "./frame";
-import type { LocateTarget } from "@/lib/locate/target";
+import { locateInPage, type LocateTarget } from "@/lib/locate/target";
 import { asksAboutTodos, capImages, formatTodos, MESSAGE_LIMIT, readUpload, skillErrorMessage, userContent } from "./prompt";
 import { ChatComposer, ChatMessages, PendingSkills, ResizeHandle, SkillPermissions, skillLabel } from "./parts";
 
@@ -445,7 +446,7 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
   };
 
   const copyReply = async (item: ChatBubble) => {
-    const ok = await copyText(item.content);
+    const ok = await copyText(citePlain(item.content, item.sources));
     if (!ok) {
       setError(tr("wikiAsk.copyFailed"));
       return;
@@ -550,7 +551,14 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
         copiedId={copiedId}
         onCopy={(item) => void copyReply(item)}
         onRegenerate={regenerate}
-        onLocate={(target) => onLocate?.(target)}
+        onLocate={(target) => {
+          if (isMobile && locateInPage(target)) {
+            onClose();
+            window.setTimeout(() => onLocate?.(target), 320);
+            return;
+          }
+          onLocate?.(target);
+        }}
       />
 
       {desktop && pendingSkills.length ? (

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { EditorPage } from "./localStore";
-import { pickSyncPlan, requiredSyncKeys, syncItems, syncPlanSize, type SyncPlan } from "./localSync";
+import type { EditorPage } from "@/store/localStore";
+import { pickSyncPlan, requiredSyncKeys, syncItems, syncPlanSize, type SyncPlan } from "@/store/localSync";
 
 function page(id: string, extra: Partial<EditorPage> = {}): EditorPage {
   return {

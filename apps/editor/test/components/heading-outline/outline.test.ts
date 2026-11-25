@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeHeadingIndex, headingLabel, headingLevel, outlineFrame, tickGap } from "./outline";
+import { activeHeadingIndex, headingLabel, headingLevel, outlineFrame, tickGap } from "@/components/heading-outline/outline";
 
 describe("headingLevel", () => {
   it("reads h1 to h3", () => {

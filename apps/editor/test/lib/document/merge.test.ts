@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
-import { mergeDocuments } from "./merge";
-import { diffText } from "./textDiff";
-import { blockHtml, blockText, highlightHtml } from "./blockView";
+import { mergeDocuments } from "@/lib/document/merge";
+import { diffText } from "@/lib/document/textDiff";
+import { blockHtml, blockText, highlightHtml } from "@/lib/document/blockView";
 
 const p = (id: string, text: string): EditorJsBlock => ({ id, type: "paragraph", data: { text } });
 const doc = (...blocks: EditorJsBlock[]): EditorJsDocument => ({ blocks });

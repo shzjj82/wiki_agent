@@ -105,6 +105,17 @@ export function urlTarget(url: string): LocateTarget | null {
   return href ? { type: "url", url: href, mode: "browser" } : null;
 }
 
+/** 会改编辑器里正在看的文档。纯网页跳转不算。 */
+export function locateInPage(target: LocateTarget | null, depth = 0): boolean {
+  if (!target || depth >= MAX_DEPTH) {
+    return false;
+  }
+  if (target.type === "page" || target.type === "text") {
+    return true;
+  }
+  return locateInPage(target.next ?? null, depth + 1);
+}
+
 /** 知识库命中：打开文档，有摘录再定位摘录。和 wiki 的 locateForRagSource 一致。 */
 export function locateFromSource(source: { docId?: string; content?: string }): LocateTarget | null {
   const pageId = (source.docId ?? "").trim();

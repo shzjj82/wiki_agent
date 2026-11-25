@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desktopExternalUrl } from "./skills";
+import { desktopExternalUrl } from "@/lib/ai/skills";
 
 const page = "http://127.0.0.1:47321/app";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { runLocate } from "./run";
-import { locateFromSource, parseLocate, textInPage, urlTarget } from "./target";
+import { runLocate } from "@/lib/locate/run";
+import { locateFromSource, locateInPage, parseLocate, textInPage, urlTarget } from "@/lib/locate/target";
 
 describe("locate target", () => {
   it("keeps a page jump and the following text jump", () => {
@@ -20,6 +20,12 @@ describe("locate target", () => {
       url: "https://example.com/a",
       mode: "browser",
     });
+  });
+
+  it("treats a document jump as in-page and a webpage as outside", () => {
+    expect(locateInPage(textInPage("page-1", "第二段"))).toBe(true);
+    expect(locateInPage({ type: "text", text: "当前段落", mode: "here" })).toBe(true);
+    expect(locateInPage(urlTarget("https://example.com/a"))).toBe(false);
   });
 
   it("turns a knowledge hit into open-page then locate-text", () => {

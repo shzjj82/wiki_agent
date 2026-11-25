@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { locateFromSource } from "@/lib/locate/target";
-import { readSources, sourceDirection } from "./sources";
+import { readSources, sourceDirection } from "@/lib/ai/sources";
 
 describe("readSources", () => {
   it("keeps one hit per page or file and keeps the server locate target", () => {

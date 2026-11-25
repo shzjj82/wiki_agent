@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyPersistedSession, clearSession, loadSession } from "./remoteStore";
+import { applyPersistedSession, clearSession, loadSession } from "@/store/remoteStore";
 
 describe("applyPersistedSession", () => {
   beforeEach(() => {

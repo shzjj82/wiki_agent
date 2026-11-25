@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { ChatBubble } from "./chat";
-import { loadWritingPage, saveWritingPage, writingTitle } from "./writingThread";
+import type { ChatBubble } from "@/lib/ai/chat";
+import { loadWritingPage, saveWritingPage, writingTitle } from "@/lib/ai/writingThread";
 
 const bubble = (id: string, content: string): ChatBubble => ({
   id,

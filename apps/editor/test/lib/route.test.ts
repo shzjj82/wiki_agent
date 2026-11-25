@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appPagePath, correctedAppPath, joinCodeFromPath, loginPath, readAppLocation, safeRedirect } from "./route";
+import { appPagePath, correctedAppPath, joinCodeFromPath, loginPath, readAppLocation, safeRedirect } from "@/lib/route";
 
 describe("safeRedirect", () => {
   it("keeps in-site paths", () => {

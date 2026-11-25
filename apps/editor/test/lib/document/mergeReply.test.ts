@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMergeReply } from "./mergeReply";
+import { parseMergeReply } from "@/lib/document/mergeReply";
 
 describe("parseMergeReply", () => {
   it("取出和冲突等长的文本", () => {

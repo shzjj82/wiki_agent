@@ -1,7 +1,7 @@
 import { createElement, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { ChatMarkdown } from "./ChatMarkdown";
+import { ChatMarkdown } from "@/components/editor-spotlight/ChatMarkdown";
 
 type Invoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
 

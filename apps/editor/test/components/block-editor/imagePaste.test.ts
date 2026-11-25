@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ocrPlainText, paragraphBlocks } from "./imagePaste";
+import { ocrPlainText, paragraphBlocks } from "@/components/block-editor/imagePaste";
 
 describe("pasted image text", () => {
   it("keeps line breaks and escapes markup", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsWebReload, normalizeAppVersion } from "./webVersion";
+import { needsWebReload, normalizeAppVersion } from "@/lib/webVersion";
 
 describe("normalizeAppVersion", () => {
   it("strips a leading v", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderChatMarkdown } from "./markdown";
+import { renderChatMarkdown } from "@/lib/ai/markdown";
 
 describe("chat markdown links", () => {
   it("keeps underscores inside a web address", () => {

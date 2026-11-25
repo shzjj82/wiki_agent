@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lintCode, normalizeCodeLanguage } from "./codeLint";
+import { lintCode, normalizeCodeLanguage } from "@/lib/document/codeLint";
 
 describe("normalizeCodeLanguage", () => {
   it("maps fence aliases to dropdown ids", () => {

@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
+import { useMemo, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { Copy, Paperclip, RefreshCw, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Locate } from "@/components/locate";
@@ -8,6 +8,7 @@ import { ChatMarkdown } from "@/components/editor-spotlight/ChatMarkdown";
 import { PendingAttachments } from "@/components/editor-spotlight/ChatAttachments";
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { AI_FILE_ACCEPT, type ChatBubble, type LocalAttachment } from "@/lib/ai/chat";
+import { hasCiteMarks, renderCitedMarkdown } from "@/lib/ai/cite-marks";
 import { sourceDirection, sourceTypeKey, type WikiSource } from "@/lib/ai/sources";
 import { locateFromSource, parseLocate, type LocateTarget } from "@/lib/locate/target";
 import { skillPreview, skillScope, type SkillCall, type SkillGrants, type SkillScope } from "@/lib/ai/skills";
@@ -72,6 +73,40 @@ function SourceList({ sources, onLocate }: { sources: WikiSource[]; onLocate: (t
   );
 }
 
+function AssistantText({
+  content,
+  sources,
+  onLocate,
+}: {
+  content: string;
+  sources?: WikiSource[];
+  onLocate: (target: LocateTarget | null) => void;
+}) {
+  const { t: tr } = useTranslation();
+  const marked = Boolean(sources?.length && hasCiteMarks(content));
+  const html = useMemo(
+    () => (marked && sources ? renderCitedMarkdown(content, sources, (source) => tr(sourceTypeKey(source.sourceType))) : undefined),
+    [content, marked, sources, tr],
+  );
+  return (
+    <ChatMarkdown
+      content={content}
+      html={html}
+      onCite={
+        marked && sources
+          ? (index) => {
+              const source = sources[index];
+              if (!source) {
+                return;
+              }
+              void onLocate(parseLocate(source.locate) ?? locateFromSource(source));
+            }
+          : undefined
+      }
+    />
+  );
+}
+
 function AssistantBubble({ children }: { children: ReactNode }) {
   return (
     <div className="flex justify-start">
@@ -130,8 +165,14 @@ export function ChatMessages({
             </p>
           ) : item.role === "assistant" ? (
             <AssistantBubble key={item.id}>
-              <ChatMarkdown content={item.content || (sending && item.id === replyingId ? tr("spotlight.thinking") : "")} />
-              {item.id !== replyingId && item.sources?.length ? <SourceList sources={item.sources} onLocate={onLocate} /> : null}
+              <AssistantText
+                content={item.content || (sending && item.id === replyingId ? tr("spotlight.thinking") : "")}
+                sources={item.sources}
+                onLocate={onLocate}
+              />
+              {item.id !== replyingId && item.sources?.length && !hasCiteMarks(item.content) ? (
+                <SourceList sources={item.sources} onLocate={onLocate} />
+              ) : null}
               {item.content.trim() && item.id !== replyingId ? (
                 <div className="-ml-1 mt-1 flex items-center gap-0.5">
                   <Button type="button" variant="ghost" size="icon-xs" aria-label={copiedId === item.id ? tr("wikiAsk.copied") : tr("wikiAsk.copy")} onClick={() => onCopy(item)}>
