@@ -359,7 +359,7 @@ export function EditorWorkspace(props: Props) {
           <EmptyState hasPages={nodes.length > 0} onCreate={() => onCreatePage(null)} />
         )}
       </FileDropZone>
-      <div ref={onBarSlot} className="shrink-0" />
+      <div ref={onBarSlot} className="relative shrink-0" />
     </main>
   );
 }

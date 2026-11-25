@@ -194,9 +194,10 @@ export const zh = {
     styleCode: "代码",
   },
   imagePaste: {
-    title: "粘贴图片",
-    description: "选择如何放入这张图片。",
-    descriptionMany: "选择如何放入这 {{count}} 张图片。",
+    camera: "拍照",
+    title: "添加图片",
+    description: "选择插入图片，还是识别成文字。",
+    descriptionMany: "选择插入这 {{count}} 张图片，还是识别成文字。",
     asImage: "导入图片",
     asText: "OCR识别后导入",
     recognizing: "正在识别…",

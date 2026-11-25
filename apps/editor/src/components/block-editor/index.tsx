@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EditorJS from "@editorjs/editorjs";
 import Delimiter from "@editorjs/delimiter";
@@ -26,11 +26,13 @@ import { menuIcons } from "./menuIcons";
 import { bindToolbarAnchor, blockIconKey } from "./toolbarAnchor";
 import { revealText } from "./revealText";
 import { useDocHistory } from "./useDocHistory";
-import { bindPaste, insertPastedImages, insertPastedText, type PastePlace } from "./paste";
+import { bindPaste, insertPastedImages, insertPastedText, pastePlace, type PastePlace } from "./paste";
 import { ocrPlainText } from "./imagePaste";
 import { recognizeImageUrls } from "@/lib/ai/client";
 import { aiErrorMessage } from "@/lib/ai/chat";
 import { HeadingOutline } from "@/components/heading-outline";
+import { WorkspaceContext } from "@/layouts/workspace/context";
+import { CameraFab } from "./CameraFab";
 import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -101,6 +103,7 @@ export function BlockEditor({
 }: Props) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const sidebarOpen = useContext(WorkspaceContext)?.sidebarOpen ?? false;
   const viewport = useVisualViewport();
   const { keyboardOpen } = viewport;
   const embed = variant === "embed";
@@ -708,6 +711,7 @@ export function BlockEditor({
 
   /* 放在所有 useState 之后：压缩后如果提前引用会命中 TDZ（Cannot access before initialization） */
   const showBar = isMobile && ready && !readOnly && editing && Boolean(barSlot);
+  const showCamera = isMobile && ready && !readOnly && !embed && !sidebarOpen;
   /* 提示条贴着可视视口底部；键盘开着时让出底栏的高度 */
   const toastBottom = viewport.top + viewport.height - (keyboardOpen ? 56 : 16);
 
@@ -819,6 +823,21 @@ export function BlockEditor({
               onClose={() => {
                 setRemovedToast(null);
                 window.clearTimeout(toastTimerRef.current);
+              }}
+            />,
+            document.body,
+          )
+        : null}
+      {showCamera
+        ? createPortal(
+            <CameraFab
+              bottomInset={showBar ? 64 : 12}
+              onPick={(file) => {
+                const editor = editorInstanceRef.current;
+                if (!editor) {
+                  return;
+                }
+                openImagePaste([file], pastePlace(editor));
               }}
             />,
             document.body,

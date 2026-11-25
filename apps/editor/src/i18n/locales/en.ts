@@ -196,9 +196,10 @@ export const en: Messages = {
     styleCode: "Code",
   },
   imagePaste: {
-    title: "Paste image",
-    description: "Choose how to add this image.",
-    descriptionMany: "Choose how to add these {{count}} images.",
+    camera: "Take photo",
+    title: "Add image",
+    description: "Insert the photo, or recognize it as text.",
+    descriptionMany: "Insert these {{count}} photos, or recognize them as text.",
     asImage: "Import image",
     asText: "Import recognized text",
     recognizing: "Recognizing…",
