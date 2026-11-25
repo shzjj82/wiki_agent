@@ -62,6 +62,39 @@ export function isDesktopApp(): boolean {
   return Boolean(internals?.invoke);
 }
 
+/**
+ * 桌面窗口没有浏览器标签页。知识库回复里的站外网址要点开时，交给系统浏览器。
+ * 当前应用自己的地址仍留在窗口里。
+ */
+export function desktopExternalUrl(href: string, pageHref: string): string | null {
+  const raw = href.trim();
+  if (!raw || raw.length > 2000) {
+    return null;
+  }
+  let url: URL;
+  let page: URL;
+  try {
+    page = new URL(pageHref);
+    url = new URL(raw, page);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return null;
+  }
+  if (url.username || url.password) {
+    return null;
+  }
+  if (url.origin === page.origin) {
+    return null;
+  }
+  return url.toString();
+}
+
+export async function openDesktopUrl(url: string): Promise<void> {
+  await desktopInvoke("open_ai_target", { target: url });
+}
+
 /** 从模型回复里抽出 ```skill 代码块，正文里不再展示这段 JSON */
 export function extractSkills(reply: string): { text: string; skills: SkillCall[] } {
   const skills: SkillCall[] = [];

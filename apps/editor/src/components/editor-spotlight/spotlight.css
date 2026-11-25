@@ -663,6 +663,7 @@
 
 .chat-md a {
   color: var(--foreground, #191919);
+  cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
