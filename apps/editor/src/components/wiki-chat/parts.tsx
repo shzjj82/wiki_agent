@@ -9,7 +9,7 @@ import { PendingAttachments } from "@/components/editor-spotlight/ChatAttachment
 import { SoftScrollbar } from "@/components/soft-scrollbar";
 import { AI_FILE_ACCEPT, type ChatBubble, type LocalAttachment } from "@/lib/ai/chat";
 import { hasCiteMarks, renderCitedMarkdown } from "@/lib/ai/cite-marks";
-import { sourceDirection, sourceTypeKey, type WikiSource } from "@/lib/ai/sources";
+import { sourceDirection, sourceTagTone, sourceTypeKey, type WikiSource } from "@/lib/ai/sources";
 import { locateFromSource, parseLocate, type LocateTarget } from "@/lib/locate/target";
 import { skillPreview, skillScope, type SkillCall, type SkillGrants, type SkillScope } from "@/lib/ai/skills";
 import type { ResizeCorner } from "./frame";
@@ -63,7 +63,7 @@ function SourceList({ sources, onLocate }: { sources: WikiSource[]; onLocate: (t
       {sources.map((source) => (
         <Locate key={`${source.docId}-${source.sourceType}-${source.sourceName ?? ""}`} target={parseLocate(source.locate) ?? locateFromSource(source)} onLocate={onLocate}>
           <button type="button" className="hover:bg-background/70 flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs">
-            <span className="bg-background shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">{tr(sourceTypeKey(source.sourceType))}</span>
+            <span className={`${sourceTagTone(source.sourceType)} shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium`}>{tr(sourceTypeKey(source.sourceType))}</span>
             <span className="min-w-0 flex-1 truncate">{sourceDirection(source)}</span>
             <span className="text-muted-foreground shrink-0">{tr("wikiAsk.sourceJump")}</span>
           </button>

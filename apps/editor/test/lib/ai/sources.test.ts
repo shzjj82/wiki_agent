@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { locateFromSource } from "@/lib/locate/target";
-import { readSources, sourceDirection } from "@/lib/ai/sources";
+import { readSources, sourceDirection, sourceTagTone } from "@/lib/ai/sources";
 
 describe("readSources", () => {
   it("keeps one hit per page or file and keeps the server locate target", () => {
@@ -31,5 +31,10 @@ describe("readSources", () => {
       next: { type: "text", text: "【附件：资质.docx】 费用 300 元", mode: "here" },
     });
     expect(sourceDirection(sources[1]!)).toBe("资质.docx");
+  });
+
+  it("Word 标签用蓝色，其它类型用灰底", () => {
+    expect(sourceTagTone("docx")).toContain("text-[#2b579a]");
+    expect(sourceTagTone("editorjs")).toBe("bg-background");
   });
 });

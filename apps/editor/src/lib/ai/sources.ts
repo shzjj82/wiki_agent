@@ -86,6 +86,13 @@ export function sourceTypeKey(
   }
 }
 
+/** Word 用品牌蓝，其它类型保持灰底。 */
+export function sourceTagTone(sourceType: string): string {
+  return sourceTypeKey(sourceType) === "wikiAsk.sourceWord"
+    ? "text-[#2b579a] bg-[#2b579a]/12"
+    : "bg-background";
+}
+
 /** 页面显示标题，附件显示文件名。 */
 export function sourceDirection(source: WikiSource): string {
   if (source.sourceType !== "editorjs" && source.sourceType !== "image" && source.sourceName) {

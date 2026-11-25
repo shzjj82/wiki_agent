@@ -15,6 +15,9 @@ describe("cite marks", () => {
     const html = renderCitedMarkdown("费用见{{cite:0}}。", [word], () => "Word");
     expect(html).toContain("data-cite=\"0\"");
     expect(html).toContain("《项目相关》");
+    expect(html).toContain("underline underline-offset-2");
+    expect(html).not.toContain("decoration-dotted");
+    expect(html).toContain("text-[#2b579a]");
     expect(html).toContain("Word");
     expect(html).not.toContain("{{cite:0}}");
   });

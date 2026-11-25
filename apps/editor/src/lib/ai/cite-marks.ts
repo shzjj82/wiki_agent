@@ -1,5 +1,5 @@
 import { renderChatMarkdown } from "./markdown";
-import { type WikiSource } from "./sources";
+import { sourceTagTone, type WikiSource } from "./sources";
 
 function citePattern(): RegExp {
   return /\{\{cite:(\d+)\}\}/g;
@@ -34,7 +34,7 @@ export function renderCitedMarkdown(
     }
     const title = escapeHtml(citeLabel(source));
     const tag = escapeHtml(typeLabel(source));
-    return `<button type="button" data-cite="${index}" class="mx-0.5 inline-flex items-baseline gap-1 align-baseline text-inherit"><span class="underline decoration-dotted underline-offset-2">《${title}》</span><span class="bg-background rounded px-1 text-[10px] leading-4 font-medium">${tag}</span></button>`;
+    return `<button type="button" data-cite="${index}" class="mx-0.5 inline-flex items-baseline gap-1 align-baseline text-inherit"><span class="underline underline-offset-2">《${title}》</span><span class="${sourceTagTone(source.sourceType)} rounded px-1 text-[10px] leading-4 font-medium">${tag}</span></button>`;
   });
 }
 
