@@ -14,7 +14,7 @@ export function withCiteMarks(content: string, sources: WikiSource[]): string {
   if (!sources.length) {
     return content;
   }
-  let text = content;
+  let text = ensureSourceLabel(content);
   const used = new Set(
     [...text.matchAll(/\{\{cite:(\d+)\}\}/g)].map((match) => Number(match[1])),
   );
@@ -47,6 +47,18 @@ export function withCiteMarks(content: string, sources: WikiSource[]): string {
     return `${text.trimEnd()} ${marks}`;
   }
   return `${text.slice(0, cut)} ${marks}${text.slice(cut)}`;
+}
+
+/** 服务端只给了 {{cite:n}} 时，前端补上来源。已经写过来源的不再套一层。 */
+function ensureSourceLabel(text: string): string {
+  return text.replace(/\{\{cite:(\d+)\}\}/g, (mark, index: string, offset: number, source: string) => {
+    const before = source.slice(Math.max(0, offset - 8), offset);
+    if (/(?:来源|Source)\s*[：:]\s*$/i.test(before)) {
+      return mark;
+    }
+    const sample = source.slice(Math.max(0, offset - 24), offset + mark.length);
+    return sourceLabel(Number(index), sample);
+  });
 }
 
 function sourceLabel(index: number, sample: string): string {

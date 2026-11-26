@@ -23,7 +23,12 @@ describe("cite marks", () => {
   });
 
   it("复制时还原成书名", () => {
-    expect(citePlain("费用见{{cite:0}}。", [word])).toBe("费用见《项目相关》。");
+    expect(citePlain("费用见{{cite:0}}。", [word])).toBe("费用见（来源：《项目相关》）。");
+  });
+
+  it("服务端只给了标记时，前端补上来源", () => {
+    expect(withCiteMarks("费用见{{cite:0}}。", [word])).toBe("费用见（来源：{{cite:0}}）。");
+    expect(withCiteMarks("费用见（来源：{{cite:0}}）。", [word])).toBe("费用见（来源：{{cite:0}}）。");
   });
 
   it("正文里出现标题时把出处嵌进去，而不是堆在最后", () => {
