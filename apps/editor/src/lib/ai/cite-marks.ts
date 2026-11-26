@@ -9,12 +9,12 @@ export function hasCiteMarks(content: string): boolean {
   return /\{\{cite:\d+\}\}/.test(content);
 }
 
-/** 没写 {{cite:n}} 时，把出处嵌进正文，不要单独垫在气泡最下面。 */
-export function withCiteMarks(content: string, sources: WikiSource[]): string {
+/** 没写 {{cite:n}} 时，把出处嵌进正文，不要单独垫在气泡最下面。word 跟着界面语言，中文是来源，英文是 Source。 */
+export function withCiteMarks(content: string, sources: WikiSource[], word = "来源"): string {
   if (!sources.length) {
     return content;
   }
-  let text = ensureSourceLabel(content);
+  let text = ensureSourceLabel(unwrapSourceLabel(content), word);
   const used = new Set(
     [...text.matchAll(/\{\{cite:(\d+)\}\}/g)].map((match) => Number(match[1])),
   );
@@ -33,15 +33,14 @@ export function withCiteMarks(content: string, sources: WikiSource[]): string {
     if (from < 0) {
       continue;
     }
-    const sample = text.slice(Math.max(0, from - 24), from + size);
-    text = `${text.slice(0, from)}${sourceLabel(index, sample)}${text.slice(from + size)}`;
+    text = `${text.slice(0, from)}${sourceLabel(index, word)}${text.slice(from + size)}`;
     used.add(index);
   }
   const leftover = sources.map((_, index) => index).filter((index) => !used.has(index));
   if (!leftover.length) {
     return text;
   }
-  const marks = leftover.map((index) => sourceLabel(index, text)).join("");
+  const marks = leftover.map((index) => sourceLabel(index, word)).join("");
   const cut = text.search(/\n\n/);
   if (cut < 0) {
     return `${text.trimEnd()} ${marks}`;
@@ -49,31 +48,28 @@ export function withCiteMarks(content: string, sources: WikiSource[]): string {
   return `${text.slice(0, cut)} ${marks}${text.slice(cut)}`;
 }
 
-/** 服务端只给了 {{cite:n}} 时，前端补上来源。已经写过来源的不再套一层。 */
-function ensureSourceLabel(text: string): string {
-  return text.replace(/\{\{cite:(\d+)\}\}/g, (mark, index: string, offset: number, source: string) => {
-    const before = source.slice(Math.max(0, offset - 8), offset);
-    if (/(?:来源|Source)\s*[：:]\s*$/i.test(before)) {
-      return mark;
-    }
-    const sample = source.slice(Math.max(0, offset - 24), offset + mark.length);
-    return sourceLabel(Number(index), sample);
-  });
+/** 先剥掉已有的来源或 Source，再按当前界面语言套回去。 */
+function unwrapSourceLabel(text: string): string {
+  return text.replace(/[（(]\s*(?:来源|Source)\s*[：:]\s*(\{\{cite:\d+\}\})\s*[）)]/gi, "$1");
 }
 
-function sourceLabel(index: number, sample: string): string {
+function ensureSourceLabel(text: string, word: string): string {
+  return text.replace(/\{\{cite:(\d+)\}\}/g, (_mark, index: string) => sourceLabel(Number(index), word));
+}
+
+function sourceLabel(index: number, word: string): string {
   const mark = `{{cite:${index}}}`;
-  if (/[\u3400-\u9fff（）：「」]/.test(sample)) {
-    return `（来源：${mark}）`;
+  if (/[\u3400-\u9fff]/.test(word)) {
+    return `（${word}：${mark}）`;
   }
-  return `(来源: ${mark})`;
+  return `(${word}: ${mark})`;
 }
 
 const TOKEN = "\u0001";
 
 /** 复制时把标记还原成书名，不把 {{cite:0}} 带进剪贴板。 */
-export function citePlain(content: string, sources: WikiSource[] | undefined): string {
-  const text = sources?.length ? withCiteMarks(content, sources) : content;
+export function citePlain(content: string, sources: WikiSource[] | undefined, word = "来源"): string {
+  const text = sources?.length ? withCiteMarks(content, sources, word) : content;
   return text.replace(citePattern(), (_all, index: string) => {
     const source = sources?.[Number(index)];
     return source ? `《${citeLabel(source)}》` : "";

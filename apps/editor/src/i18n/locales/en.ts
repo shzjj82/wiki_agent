@@ -545,6 +545,7 @@ export const en: Messages = {
     emptyTitle: "Ask from your wiki",
     emptyHint: "Hi — I answer from your wiki pages. You can send files too. I'll ask before doing anything on this computer.",
     login: "Log in to ask the wiki.",
+    citeFrom: "Source",
     sources: "Sources",
     sourceJump: "Open",
     sourcePage: "Page",

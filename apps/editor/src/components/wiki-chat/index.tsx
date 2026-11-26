@@ -446,7 +446,7 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
   };
 
   const copyReply = async (item: ChatBubble) => {
-    const ok = await copyText(citePlain(item.content, item.sources));
+    const ok = await copyText(citePlain(item.content, item.sources, tr("wikiAsk.citeFrom")));
     if (!ok) {
       setError(tr("wikiAsk.copyFailed"));
       return;

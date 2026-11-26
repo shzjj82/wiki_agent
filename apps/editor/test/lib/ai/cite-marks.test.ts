@@ -39,8 +39,10 @@ describe("cite marks", () => {
     expect(withCiteMarks("结论如下。\n\n第二段。", [word])).toBe("结论如下。 （来源：{{cite:0}}）\n\n第二段。");
   });
 
-  it("英文句子用半角括号和冒号", () => {
+  it("英文界面写成 Source，并把已有的来源换掉", () => {
     const project: WikiSource = { ...word, title: "Project", sourceName: "Project.docx" };
-    expect(withCiteMarks("See 《Project》.", [project])).toBe("See (来源: {{cite:0}}).");
+    expect(withCiteMarks("See 《Project》.", [project], "Source")).toBe("See (Source: {{cite:0}}).");
+    expect(withCiteMarks("费用见（来源：{{cite:0}}）。", [word], "Source")).toBe("费用见(Source: {{cite:0}})。");
+    expect(withCiteMarks("See (Source: {{cite:0}}).", [project], "来源")).toBe("See （来源：{{cite:0}}）.");
   });
 });

@@ -63,7 +63,10 @@ function AssistantText({
   const { t: tr } = useTranslation();
   const marked = Boolean(sources?.length);
   const html = useMemo(
-    () => (marked && sources ? renderCitedMarkdown(withCiteMarks(content, sources), sources, (source) => tr(sourceTypeKey(source.sourceType))) : undefined),
+    () =>
+      marked && sources
+        ? renderCitedMarkdown(withCiteMarks(content, sources, tr("wikiAsk.citeFrom")), sources, (source) => tr(sourceTypeKey(source.sourceType)))
+        : undefined,
     [content, marked, sources, tr],
   );
   return (
