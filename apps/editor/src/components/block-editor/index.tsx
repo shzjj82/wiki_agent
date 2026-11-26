@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EditorJS from "@editorjs/editorjs";
 import Delimiter from "@editorjs/delimiter";
@@ -31,8 +31,7 @@ import { ocrPlainText } from "./imagePaste";
 import { recognizeImageUrls } from "@/lib/ai/client";
 import { aiErrorMessage } from "@/lib/ai/chat";
 import { HeadingOutline } from "@/components/heading-outline";
-import { WorkspaceContext } from "@/layouts/workspace/context";
-import { CameraFab } from "./CameraFab";
+import { isImageFile } from "@/lib/document/fileKinds";
 import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -73,6 +72,8 @@ type Props = {
   onHistory?: (api: EditorHistoryApi | null) => void;
   /** 移动端底栏挂载点（父级布局流里的一个空容器）；不传则不渲染底栏 */
   barSlot?: HTMLElement | null;
+  /** 顶栏导入选了照片时打开「插入图片 / 识别文字」 */
+  importImages?: { files: File[]; nonce: number } | null;
   variant?: BlockEditorVariant;
   className?: string;
   /** 待办块「添加 / 编辑」打开详情对话框 */
@@ -97,13 +98,13 @@ export function BlockEditor({
   readOnly = false,
   onHistory,
   barSlot,
+  importImages,
   variant = "page",
   className,
   onTodoDetail,
 }: Props) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const sidebarOpen = useContext(WorkspaceContext)?.sidebarOpen ?? false;
   const viewport = useVisualViewport();
   const { keyboardOpen } = viewport;
   const embed = variant === "embed";
@@ -582,6 +583,20 @@ export function BlockEditor({
   }
   onImagePasteRef.current = openImagePaste;
 
+  const seenImages = useRef(0);
+  useEffect(() => {
+    if (!importImages || importImages.nonce === seenImages.current) {
+      return;
+    }
+    seenImages.current = importImages.nonce;
+    const editor = editorInstanceRef.current;
+    const images = importImages.files.filter((file) => file.type.startsWith("image/") || isImageFile(file));
+    if (!editor || !images.length) {
+      return;
+    }
+    openImagePaste(images, pastePlace(editor));
+  }, [importImages]);
+
   function closeImagePaste() {
     const current = imagePasteRef.current;
     if (!current || current.busy) {
@@ -711,7 +726,6 @@ export function BlockEditor({
 
   /* 放在所有 useState 之后：压缩后如果提前引用会命中 TDZ（Cannot access before initialization） */
   const showBar = isMobile && ready && !readOnly && editing && Boolean(barSlot);
-  const showCamera = isMobile && ready && !readOnly && !embed && !sidebarOpen;
   /* 提示条贴着可视视口底部；键盘开着时让出底栏的高度 */
   const toastBottom = viewport.top + viewport.height - (keyboardOpen ? 56 : 16);
 
@@ -823,21 +837,6 @@ export function BlockEditor({
               onClose={() => {
                 setRemovedToast(null);
                 window.clearTimeout(toastTimerRef.current);
-              }}
-            />,
-            document.body,
-          )
-        : null}
-      {showCamera
-        ? createPortal(
-            <CameraFab
-              bottomInset={showBar ? 64 : 12}
-              onPick={(file) => {
-                const editor = editorInstanceRef.current;
-                if (!editor) {
-                  return;
-                }
-                openImagePaste([file], pastePlace(editor));
               }}
             />,
             document.body,

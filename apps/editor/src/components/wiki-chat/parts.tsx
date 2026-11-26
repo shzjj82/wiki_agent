@@ -224,6 +224,7 @@ export function ChatComposer({
   uploading,
   canSend,
   showHint,
+  safeBottom,
   onPromptChange,
   onRemoveAttachment,
   onFiles,
@@ -240,6 +241,8 @@ export function ChatComposer({
   uploading: boolean;
   canSend: boolean;
   showHint: boolean;
+  /** 键盘收起时让出发送栏下的系统安全区 */
+  safeBottom?: boolean;
   onPromptChange: (value: string) => void;
   onRemoveAttachment: (id: string) => void;
   onFiles: (files: File[]) => void;
@@ -249,7 +252,8 @@ export function ChatComposer({
   const { t: tr } = useTranslation();
   return (
     <form
-      className="shrink-0 border-t border-border/30 p-3 pt-2"
+      className="shrink-0 border-t border-border/30 px-3 pt-2"
+      style={{ paddingBottom: safeBottom ? "max(0.75rem, env(safe-area-inset-bottom))" : "0.75rem" }}
       onSubmit={(event) => {
         event.preventDefault();
         onSend();

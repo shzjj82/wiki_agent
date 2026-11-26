@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { History, Settings, X } from "lucide-react";
+import { History, X } from "lucide-react";
 import type { AiChatMessage } from "@myblog/shared";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +38,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { useFloatingFrame, windowBox } from "./frame";
 import { locateInPage, type LocateTarget } from "@/lib/locate/target";
 import { capImages, readUpload, skillErrorMessage, userContent } from "./prompt";
-import { ChatComposer, ChatMessages, PendingSkills, ResizeHandle, SkillPermissions, skillLabel } from "./parts";
+import { ChatComposer, ChatMessages, PendingSkills, ResizeHandle, skillLabel } from "./parts";
 
 type Props = {
   open: boolean;
@@ -67,7 +67,6 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [grants, setGrants] = useState<SkillGrants>(() => loadSkillGrants());
-  const [permOpen, setPermOpen] = useState(false);
   const [pendingSkills, setPendingSkills] = useState<SkillCall[]>([]);
   const [sheetPresent, setSheetPresent] = useState(open);
   const [sheetEntered, setSheetEntered] = useState(false);
@@ -111,10 +110,6 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (permOpen) {
-          setPermOpen(false);
-          return;
-        }
         if (historyOpen) {
           setHistoryOpen(false);
           return;
@@ -124,7 +119,7 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose, permOpen, historyOpen]);
+  }, [open, onClose, historyOpen]);
 
   useEffect(() => {
     if (!open || !loggedIn) {
@@ -497,11 +492,6 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
         <Button type="button" variant={historyOpen ? "secondary" : "ghost"} size="icon" aria-label={tr("wikiAsk.history")} onClick={() => setHistoryOpen((open) => !open)}>
           <History size={16} />
         </Button>
-        {desktop ? (
-          <Button type="button" variant={permOpen ? "secondary" : "ghost"} size="icon" aria-label={tr("wikiAsk.permissions")} onClick={() => setPermOpen((open) => !open)}>
-            <Settings size={16} />
-          </Button>
-        ) : null}
         <Button type="button" variant="ghost" size="icon" aria-label={tr("wikiAsk.close")} onClick={onClose}>
           <X size={16} />
         </Button>
@@ -518,8 +508,6 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
         />
       ) : null}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {desktop && permOpen ? <SkillPermissions grants={grants} onChange={persistGrants} /> : null}
-
       <ChatMessages
         bubbles={bubbles}
         sending={sending}
@@ -556,6 +544,7 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
         uploading={uploading}
         canSend={canSend}
         showHint={!isMobile}
+        safeBottom={isMobile && !viewport.keyboardOpen}
         onPromptChange={setPrompt}
         onRemoveAttachment={(id) => setAttachments((prev) => prev.filter((item) => item.id !== id))}
         onFiles={(files) => void addFiles(files)}
@@ -594,6 +583,7 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
             aria-hidden={!historyOpen}
           >
             <HistoryPanel
+              className={viewport.keyboardOpen ? undefined : "pb-[env(safe-area-inset-bottom)]"}
               threads={threads}
               activeId={threadId}
               onNew={startNewChat}

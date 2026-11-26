@@ -1,9 +1,11 @@
 import type { MutableRefObject, ReactNode } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Cloud, Download, Ellipsis, FileOutput, HardDrive, Menu, Redo2, Trash2, Undo2 } from "lucide-react";
 import type { EditorJsDocument } from "@myblog/shared";
 import type EditorJS from "@editorjs/editorjs";
 import { BlockEditor, type EditorHistoryApi } from "@/components/block-editor";
+import { MobileIoSheet } from "@/components/block-editor/MobileBlockBar";
 import type { PageLinkData } from "@/components/block-editor/tools/PageLinkTool";
 import type { TodoBlockDetailRequest } from "@/components/block-editor/tools/TodoBlockTool";
 import { EmptyState } from "@/components/empty-state";
@@ -11,7 +13,8 @@ import { FileDropZone } from "@/components/file-drop";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { LanguageSwitch } from "@/components/language-switch";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverSeparator, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStatus } from "@/layouts/workspace/context";
 import { WORD_ACCEPT } from "@/lib/document/import";
@@ -40,7 +43,7 @@ function MenuRow({
       type="button"
       disabled={disabled}
       className={cn(
-        "flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm disabled:pointer-events-none disabled:opacity-50",
+        "flex h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm disabled:pointer-events-none disabled:opacity-50",
         danger ? "text-destructive hover:bg-destructive/10" : "hover:bg-muted",
       )}
       onClick={onClick}
@@ -154,6 +157,8 @@ export function EditorWorkspace(props: Props) {
     onCreatePage,
   } = props;
   const blocked = !page || emptyTeamId !== null;
+  const [ioMode, setIoMode] = useState<"import" | "export" | null>(null);
+  const [importImages, setImportImages] = useState<{ files: File[]; nonce: number } | null>(null);
 
   return (
     <main className="flex h-full min-h-0 min-w-0 flex-col bg-background">
@@ -251,75 +256,77 @@ export function EditorWorkspace(props: Props) {
             <LanguageSwitch onChange={onSwitchLocale} />
           </span>
           <span className="inline-flex shrink-0 items-center gap-1 sm:hidden">
-            <Popover open={mobileMenuOpen} onOpenChange={onMobileMenu}>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="icon" aria-label={t("app.moreActions")}>
-                  <Ellipsis {...iconProps} />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-60 p-1">
-                {syncPending > 0 ? (
-                  <>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={t("app.moreActions")}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => onMobileMenu(true)}
+            >
+              <Ellipsis {...iconProps} />
+            </Button>
+            {mobileMenuOpen ? (
+              <Sheet open onOpenChange={onMobileMenu}>
+                <SheetContent side="bottom">
+                  <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
+                  <SheetTitle className="px-4 py-3 text-left">{t("app.moreActions")}</SheetTitle>
+                  <SheetDescription className="sr-only">{t("app.moreActions")}</SheetDescription>
+                  <div className="grid px-2 pb-2">
+                    {syncPending > 0 ? (
+                      <>
+                        <MenuRow
+                          icon={<Cloud {...iconProps} />}
+                          onClick={() => {
+                            onMobileMenu(false);
+                            onOpenSync();
+                          }}
+                        >
+                          {t("common.syncLocalPages")} · {syncPending}
+                        </MenuRow>
+                        <div className="mx-3 my-1 h-px bg-border" />
+                      </>
+                    ) : null}
                     <MenuRow
-                      icon={<Cloud {...iconProps} />}
+                      icon={<Download {...iconProps} />}
+                      disabled={blocked || pageReadOnly}
                       onClick={() => {
                         onMobileMenu(false);
-                        onOpenSync();
+                        setIoMode("import");
                       }}
                     >
-                      {t("common.syncLocalPages")} · {syncPending}
+                      {t("common.import")}
                     </MenuRow>
-                    <PopoverSeparator />
-                  </>
-                ) : null}
-                <MenuRow
-                  icon={<Download {...iconProps} />}
-                  disabled={blocked}
-                  onClick={() => {
-                    onMobileMenu(false);
-                    importInputRef.current?.click();
-                  }}
-                >
-                  {t("common.import")}
-                </MenuRow>
-                <MenuRow
-                  icon={<FileTypeIcon type="pdf" />}
-                  disabled={blocked}
-                  onClick={() => {
-                    onMobileMenu(false);
-                    if (page) onExport("pdf");
-                  }}
-                >
-                  {t("common.exportPdf")}
-                </MenuRow>
-                <MenuRow
-                  icon={<FileTypeIcon type="word" />}
-                  disabled={blocked}
-                  onClick={() => {
-                    onMobileMenu(false);
-                    if (page) onExport("word");
-                  }}
-                >
-                  {t("common.exportWord")}
-                </MenuRow>
-                <MenuRow
-                  icon={<Trash2 {...iconProps} />}
-                  danger
-                  disabled={blocked || pageReadOnly}
-                  onClick={() => {
-                    onMobileMenu(false);
-                    if (page) onDeletePage();
-                  }}
-                >
-                  {t("common.delete")}
-                </MenuRow>
-                <PopoverSeparator />
-                <div className="flex items-center justify-between gap-2 px-2 py-1">
-                  <span className="text-xs text-muted-foreground">{t("common.language")}</span>
-                  <LanguageSwitch onChange={onSwitchLocale} />
-                </div>
-              </PopoverContent>
-            </Popover>
+                    <MenuRow
+                      icon={<FileOutput {...iconProps} />}
+                      disabled={blocked}
+                      onClick={() => {
+                        onMobileMenu(false);
+                        setIoMode("export");
+                      }}
+                    >
+                      {t("app.export")}
+                    </MenuRow>
+                    <MenuRow
+                      icon={<Trash2 {...iconProps} />}
+                      danger
+                      disabled={blocked || pageReadOnly}
+                      onClick={() => {
+                        onMobileMenu(false);
+                        if (page) onDeletePage();
+                      }}
+                    >
+                      {t("common.delete")}
+                    </MenuRow>
+                    <div className="mx-3 my-1 h-px bg-border" />
+                    <div className="flex h-11 items-center justify-between gap-2 px-3">
+                      <span className="text-sm text-muted-foreground">{t("common.language")}</span>
+                      <LanguageSwitch onChange={onSwitchLocale} />
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : null}
             <Button type="button" variant="outline" size="icon" aria-label={t("wikiAsk.title")} onClick={onOpenWiki}>
               <span className="text-[11px] font-semibold leading-none tracking-wide">AI</span>
             </Button>
@@ -352,6 +359,7 @@ export function EditorWorkspace(props: Props) {
             onConfirmDeleteFile={onConfirmDeleteFile}
             onHistory={onHistory}
             barSlot={barSlot}
+            importImages={importImages}
             reveal={reveal}
             onTodoDetail={onTodoDetail}
           />
@@ -360,6 +368,17 @@ export function EditorWorkspace(props: Props) {
         )}
       </FileDropZone>
       <div ref={onBarSlot} className="relative shrink-0" />
+      {isMobile ? (
+        <MobileIoSheet
+          mode={ioMode}
+          onClose={() => setIoMode(null)}
+          onImages={(files) => setImportImages({ files, nonce: Date.now() })}
+          onFiles={(files) => onDrop(files, null)}
+          onExport={(format) => {
+            if (page) onExport(format);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

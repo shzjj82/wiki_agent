@@ -1,6 +1,9 @@
-import type { Ref } from "react";
-import { ChevronDown, Ellipsis, Plus, Redo2, Undo2, X } from "lucide-react";
+import { useRef, type Ref } from "react";
+import { Camera, ChevronDown, Ellipsis, Folder, ImageIcon, Plus, Redo2, Undo2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { FileTypeIcon } from "@/components/file-type-icon";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import type { ExportFormat } from "@/lib/document/export";
 import { cn } from "@/lib/utils";
 import { menuIcons } from "./menuIcons";
 
@@ -146,6 +149,81 @@ export function MobileBlockBar({ barRef, keyboardOpen, embed, blockKind, canUndo
         <ChevronDown {...barIconProps} />
       </button>
     </div>
+  );
+}
+
+type IoSheetProps = {
+  mode: "import" | "export" | null;
+  onClose: () => void;
+  onImages: (files: File[]) => void;
+  onFiles: (files: File[]) => void;
+  onExport: (format: ExportFormat) => void;
+};
+
+/** 底栏会在弹层抢走焦点时卸掉，所以弹层单独挂在外面 */
+export function MobileIoSheet({ mode, onClose, onImages, onFiles, onExport }: IoSheetProps) {
+  const { t } = useTranslation();
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const albumRef = useRef<HTMLInputElement>(null);
+  const filesRef = useRef<HTMLInputElement>(null);
+  function pick(input: HTMLInputElement | null, kind: "images" | "files") {
+    const files = Array.from(input?.files ?? []);
+    if (input) {
+      input.value = "";
+    }
+    onClose();
+    if (!files.length) {
+      return;
+    }
+    if (kind === "images") {
+      onImages(files);
+      return;
+    }
+    onFiles(files);
+  }
+  const rowClass = "flex h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm";
+  return (
+    <>
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => pick(event.currentTarget, "images")} />
+      <input ref={albumRef} type="file" accept="image/*" multiple className="sr-only" onChange={(event) => pick(event.currentTarget, "images")} />
+      <input ref={filesRef} type="file" multiple className="sr-only" onChange={(event) => pick(event.currentTarget, "files")} />
+      <Sheet open={mode !== null} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent side="bottom">
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
+          <SheetTitle className="px-4 py-3 text-left">{mode === "export" ? t("app.export") : t("common.import")}</SheetTitle>
+          <SheetDescription className="sr-only">{mode === "export" ? t("app.export") : t("common.import")}</SheetDescription>
+          <div className="grid px-2 pb-2">
+            {mode === "export" ? (
+              <>
+                <button type="button" className={rowClass} onClick={() => { onClose(); onExport("pdf"); }}>
+                  <FileTypeIcon type="pdf" />
+                  {t("common.exportPdf")}
+                </button>
+                <button type="button" className={rowClass} onClick={() => { onClose(); onExport("word"); }}>
+                  <FileTypeIcon type="word" />
+                  {t("common.exportWord")}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className={rowClass} onClick={() => cameraRef.current?.click()}>
+                  <Camera size={18} />
+                  {t("app.importCamera")}
+                </button>
+                <button type="button" className={rowClass} onClick={() => albumRef.current?.click()}>
+                  <ImageIcon size={18} />
+                  {t("app.importAlbum")}
+                </button>
+                <button type="button" className={rowClass} onClick={() => filesRef.current?.click()}>
+                  <Folder size={18} />
+                  {t("app.importFiles")}
+                </button>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
