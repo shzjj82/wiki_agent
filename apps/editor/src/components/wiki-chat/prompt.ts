@@ -2,7 +2,6 @@ import type { AiAttachment } from "@myblog/shared";
 import { parseLocalFiles, uid, type LocalAttachment } from "@/lib/ai/chat";
 import { readFileText } from "@/lib/document/fileText";
 import { fileExtension } from "@/lib/document/fileKinds";
-import { pageTodos, type SearchDoc } from "@/lib/document/search";
 import { t } from "@/i18n";
 
 export const MESSAGE_LIMIT = 8000;
@@ -16,42 +15,6 @@ export function capImages(list: AiAttachment[]): AiAttachment[] {
     images += 1;
     return images <= 6;
   });
-}
-
-export function asksAboutTodos(query: string): boolean {
-  return /待办|未完成|未开始|进行中|已完成|已终止|todo/i.test(query);
-}
-
-function keepsTodo(query: string, status: string, done: boolean): boolean {
-  const wantDone = /已完成/.test(query);
-  const wantCancel = /已终止|取消|终止/.test(query);
-  const wantActive = /未完成|未开始|进行中|待办|todo/i.test(query);
-  if (wantDone && !wantActive && !wantCancel) {
-    return done || status === "已完成";
-  }
-  if (wantCancel && !wantActive && !wantDone) {
-    return status === "已终止";
-  }
-  if (wantActive && !wantDone && !wantCancel) {
-    return status === "未开始" || status === "进行中" || (!done && status !== "已终止" && status !== "已完成");
-  }
-  return true;
-}
-
-export function formatTodos(docs: SearchDoc[], query: string, rule: string, empty: string): string {
-  const lines = [rule];
-  for (const page of pageTodos(docs)) {
-    const items = page.items.filter((item) => keepsTodo(query, item.status, item.done));
-    if (!items.length) {
-      continue;
-    }
-    lines.push(`《${page.title}》`);
-    for (const item of items) {
-      const range = item.start || item.end ? `（${item.start || "?"}至${item.end || "?"}）` : "";
-      lines.push(`- ${item.status}：${item.text}${range}`);
-    }
-  }
-  return lines.length > 1 ? lines.join("\n") : empty;
 }
 
 export async function readUpload(files: File[]): Promise<LocalAttachment[]> {

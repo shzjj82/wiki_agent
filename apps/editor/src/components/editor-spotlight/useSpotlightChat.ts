@@ -15,7 +15,6 @@ import {
   type LocalAttachment,
 } from "@/lib/ai/chat";
 import { blocksToPreviewMarkdown, markdownToEditorBlocks } from "@/lib/ai/markdown";
-import { pageTodos, type SearchDoc } from "@/lib/document/search";
 import { loadWritingPage, saveWritingPage, writingTitle, type WritingThread } from "@/lib/ai/writingThread";
 import { t } from "@/i18n";
 import { loadSession } from "@/store/remoteStore";
@@ -33,7 +32,6 @@ type Options = {
   pageId?: string;
   editor: EditorJS | null;
   insertIndex: number;
-  loadPages?: () => Promise<SearchDoc[]>;
   onInserted?: () => void;
 };
 
@@ -41,11 +39,7 @@ function upsertThread(threads: WritingThread[], thread: WritingThread): WritingT
   return [thread, ...threads.filter((item) => item.id !== thread.id)].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-function asksAboutTodos(query: string): boolean {
-  return /待办|未完成|未开始|进行中|已完成|已终止|todo/i.test(query);
-}
-
-export function useSpotlightChat({ open, pageId = "", editor, insertIndex, loadPages, onInserted }: Options) {
+export function useSpotlightChat({ open, pageId = "", editor, insertIndex, onInserted }: Options) {
   const [enabled, setEnabled] = useState(true);
   const [statusError, setStatusError] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -286,43 +280,6 @@ export function useSpotlightChat({ open, pageId = "", editor, insertIndex, loadP
         return;
       }
       const messages = toApiMessages(nextBubbles);
-      if (loadPages && asksAboutTodos(text)) {
-        try {
-          const wantDone = /已完成/.test(text);
-          const wantCancel = /已终止|取消|终止/.test(text);
-          const wantActive = /未完成|未开始|进行中|待办|todo/i.test(text);
-          const lines = [t("wikiAsk.todoRule")];
-          for (const page of pageTodos(await loadPages())) {
-            const items = page.items.filter((item) => {
-              if (wantDone && !wantActive && !wantCancel) {
-                return item.done || item.status === "已完成";
-              }
-              if (wantCancel && !wantActive && !wantDone) {
-                return item.status === "已终止";
-              }
-              if (wantActive && !wantDone && !wantCancel) {
-                return item.status === "未开始" || item.status === "进行中";
-              }
-              return true;
-            });
-            if (!items.length) {
-              continue;
-            }
-            lines.push(`《${page.title}》`);
-            for (const item of items) {
-              const range = item.start || item.end ? `（${item.start || "?"}至${item.end || "?"}）` : "";
-              lines.push(`- ${item.status}：${item.text}${range}`);
-            }
-          }
-          const retrieved = lines.length > 1 ? lines.join("\n") : t("wikiAsk.todoEmpty");
-          const last = messages[messages.length - 1];
-          if (last?.role === "user") {
-            last.content = `${retrieved}\n\n${last.content}`.slice(0, 8000);
-          }
-        } catch {
-          // 页面索引失败时仍按当前正文回答
-        }
-      }
       const result = await aiChat(
         {
           messages,

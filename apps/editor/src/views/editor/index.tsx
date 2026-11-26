@@ -491,7 +491,6 @@ export function EditorView() {
         open={wikiOpen}
         focusToken={wikiFocus}
         loggedIn={Boolean(session)}
-        loadPages={loadAskPages}
         onClose={() => setWikiOpen(false)}
         onLogin={() => {
           setWikiOpen(false);

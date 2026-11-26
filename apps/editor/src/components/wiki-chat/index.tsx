@@ -21,7 +21,6 @@ import {
   type SkillCall,
   type SkillGrants,
 } from "@/lib/ai/skills";
-import type { SearchDoc } from "@/lib/document/search";
 import { copyText } from "@/lib/clipboard";
 import {
   detailToThread,
@@ -38,20 +37,19 @@ import { cn } from "@/lib/utils";
 import { HistoryPanel } from "./HistoryPanel";
 import { useFloatingFrame, windowBox } from "./frame";
 import { locateInPage, type LocateTarget } from "@/lib/locate/target";
-import { asksAboutTodos, capImages, formatTodos, MESSAGE_LIMIT, readUpload, skillErrorMessage, userContent } from "./prompt";
+import { capImages, readUpload, skillErrorMessage, userContent } from "./prompt";
 import { ChatComposer, ChatMessages, PendingSkills, ResizeHandle, SkillPermissions, skillLabel } from "./parts";
 
 type Props = {
   open: boolean;
   focusToken: number;
   loggedIn: boolean;
-  loadPages?: () => Promise<SearchDoc[]>;
   onClose: () => void;
   onLogin: () => void;
   onLocate?: (target: LocateTarget | null) => void;
 };
 
-export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLogin, onLocate }: Props) {
+export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocate }: Props) {
   const { t: tr } = useTranslation();
   const desktop = isDesktopApp();
   const isMobile = useIsMobile();
@@ -99,7 +97,6 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
 
   useEffect(() => {
     if (!open) {
-      abortRef.current?.abort();
       return;
     }
     const timer = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 30);
@@ -311,19 +308,6 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
       const uploadedFiles = toApiAttachments(attach).filter((item) =>
         item.kind === "image" ? Boolean(item.url) : Boolean(item.text.trim()),
       );
-      let retrieved = "";
-      let aboutTodos = false;
-      if (loadPages && text) {
-        aboutTodos = asksAboutTodos(text);
-        try {
-          const docs = await loadPages();
-          retrieved = aboutTodos
-            ? formatTodos(docs, text, tr("wikiAsk.todoRule"), tr("wikiAsk.todoEmpty"))
-            : "";
-        } catch {
-          retrieved = "";
-        }
-      }
       const messages: AiChatMessage[] = history
         .map((item) => ({
           role: item.role,
@@ -341,16 +325,6 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
           content: userContent(text, attach, tr("wikiAsk.uploaded"), tr("wikiAsk.question"), tr("ai.attachmentsPrompt")) || tr("ai.attachmentsPrompt"),
         });
       }
-      if (retrieved) {
-        const last = messages[messages.length - 1];
-        if (last?.role === "user") {
-          const room = MESSAGE_LIMIT - last.content.length - 2;
-          const block = `${tr("wikiAsk.retrieved")}\n${retrieved}`.slice(0, Math.max(0, room));
-          if (block.trim()) {
-            last.content = `${block}\n\n${last.content}`;
-          }
-        }
-      }
       const lastUser = [...messages].reverse().find((item) => item.role === "user");
       const result = await aiChat(
         {
@@ -358,10 +332,11 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
           attachments: capImages(uploadedFiles),
           system: desktop ? `${t("wikiAsk.system")}\n${SKILL_SYSTEM}` : t("wikiAsk.system"),
           conversationId: threadId,
-          rag: !aboutTodos,
+          rag: true,
         },
         controller.signal,
         {
+          onConversationId: (id) => rememberConversation(id),
           onDelta: (delta) => {
             setBubbles((prev) =>
               prev.map((item) => (item.id === assistantId ? { ...item, content: item.content + delta } : item)),
@@ -384,6 +359,7 @@ export function WikiChat({ open, focusToken, loggedIn, loadPages, onClose, onLog
       void refreshThreads().catch(() => undefined);
     } catch (err) {
       if (controller.signal.aborted) {
+        void refreshThreads().catch(() => undefined);
         return;
       }
       setError(aiErrorMessage(err instanceof Error ? err.message : tr("spotlight.failedToSend")));

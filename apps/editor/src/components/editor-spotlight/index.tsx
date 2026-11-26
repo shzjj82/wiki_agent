@@ -82,7 +82,7 @@ export function EditorSpotlight({
   const searchRef = useRef<HTMLInputElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
 
-  const chat = useSpotlightChat({ open, pageId, editor, insertIndex, loadPages, onInserted });
+  const chat = useSpotlightChat({ open, pageId, editor, insertIndex, onInserted });
   const {
     prompt,
     setPrompt,

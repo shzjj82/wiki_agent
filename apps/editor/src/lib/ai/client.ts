@@ -172,6 +172,8 @@ export async function aiStatus(): Promise<AiStatusResult> {
 
 export type AiChatStreamHandlers = {
   onDelta?: (delta: string) => void;
+  /** 提问已写入历史，不必等整段回复结束 */
+  onConversationId?: (id: string) => void;
 };
 
 /**
@@ -292,7 +294,11 @@ export async function aiChat(
       if (typeof ev.reply === "string" && ev.reply) {
         reply = ev.reply;
       }
-      conversationId = pickConversationId(ev.conversationId) ?? conversationId;
+      const nextConversationId = pickConversationId(ev.conversationId);
+      if (nextConversationId) {
+        conversationId = nextConversationId;
+        handlers?.onConversationId?.(nextConversationId);
+      }
       const nextSources = readSources(ev.sources);
       if (nextSources.length) {
         sources = nextSources;
