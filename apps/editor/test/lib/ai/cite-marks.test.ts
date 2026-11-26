@@ -27,10 +27,15 @@ describe("cite marks", () => {
   });
 
   it("正文里出现标题时把出处嵌进去，而不是堆在最后", () => {
-    expect(withCiteMarks("费用见《项目相关》。", [word])).toBe("费用见{{cite:0}}。");
+    expect(withCiteMarks("费用见《项目相关》。", [word])).toBe("费用见（来源：{{cite:0}}）。");
   });
 
   it("正文没写到的出处跟在第一段后面", () => {
-    expect(withCiteMarks("结论如下。\n\n第二段。", [word])).toBe("结论如下。 {{cite:0}}\n\n第二段。");
+    expect(withCiteMarks("结论如下。\n\n第二段。", [word])).toBe("结论如下。 （来源：{{cite:0}}）\n\n第二段。");
+  });
+
+  it("英文句子用半角括号和冒号", () => {
+    const project: WikiSource = { ...word, title: "Project", sourceName: "Project.docx" };
+    expect(withCiteMarks("See 《Project》.", [project])).toBe("See (来源: {{cite:0}}).");
   });
 });

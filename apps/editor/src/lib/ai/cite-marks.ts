@@ -33,19 +33,28 @@ export function withCiteMarks(content: string, sources: WikiSource[]): string {
     if (from < 0) {
       continue;
     }
-    text = `${text.slice(0, from)}{{cite:${index}}}${text.slice(from + size)}`;
+    const sample = text.slice(Math.max(0, from - 24), from + size);
+    text = `${text.slice(0, from)}${sourceLabel(index, sample)}${text.slice(from + size)}`;
     used.add(index);
   }
   const leftover = sources.map((_, index) => index).filter((index) => !used.has(index));
   if (!leftover.length) {
     return text;
   }
-  const marks = leftover.map((index) => `{{cite:${index}}}`).join("");
+  const marks = leftover.map((index) => sourceLabel(index, text)).join("");
   const cut = text.search(/\n\n/);
   if (cut < 0) {
     return `${text.trimEnd()} ${marks}`;
   }
   return `${text.slice(0, cut)} ${marks}${text.slice(cut)}`;
+}
+
+function sourceLabel(index: number, sample: string): string {
+  const mark = `{{cite:${index}}}`;
+  if (/[\u3400-\u9fff（）：「」]/.test(sample)) {
+    return `（来源：${mark}）`;
+  }
+  return `(来源: ${mark})`;
 }
 
 const TOKEN = "\u0001";
