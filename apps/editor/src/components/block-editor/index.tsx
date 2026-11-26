@@ -31,7 +31,7 @@ import { ocrPlainText } from "./imagePaste";
 import { recognizeImageUrls } from "@/lib/ai/client";
 import { aiErrorMessage } from "@/lib/ai/chat";
 import { HeadingOutline } from "@/components/heading-outline";
-import { isImageFile } from "@/lib/document/fileKinds";
+import { isImportImage } from "@/lib/document/fileKinds";
 import { BlockRemovedToast, MobileBlockBar } from "./MobileBlockBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -590,7 +590,7 @@ export function BlockEditor({
     }
     seenImages.current = importImages.nonce;
     const editor = editorInstanceRef.current;
-    const images = importImages.files.filter((file) => file.type.startsWith("image/") || isImageFile(file));
+    const images = importImages.files.filter(isImportImage);
     if (!editor || !images.length) {
       return;
     }

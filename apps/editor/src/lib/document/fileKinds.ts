@@ -75,6 +75,25 @@ export function isImageFile(file: { name: string; type: string }): boolean {
   return /^image\/(png|jpeg|gif|webp|bmp|svg\+xml)$/.test(file.type) || IMAGE_EXTENSIONS.has(fileExtension(file.name));
 }
 
+/** 导入入口认图片：相册常只给 image/*，文件名也能认 */
+export function isImportImage(file: { name: string; type: string }): boolean {
+  return file.type.startsWith("image/") || isImageFile(file);
+}
+
+/** 一次导入里，图片走贴图/识别，其余仍按文件导入 */
+export function partitionImportFiles<T extends { name: string; type: string }>(files: T[]): { images: T[]; rest: T[] } {
+  const images: T[] = [];
+  const rest: T[] = [];
+  for (const file of files) {
+    if (isImportImage(file)) {
+      images.push(file);
+    } else {
+      rest.push(file);
+    }
+  }
+  return { images, rest };
+}
+
 export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 
 export function fileExtension(name: string): string {

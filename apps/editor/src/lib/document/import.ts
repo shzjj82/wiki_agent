@@ -1,12 +1,18 @@
 import type { EditorJsBlock, EditorJsDocument } from "@myblog/shared";
 import { htmlToBlocks } from "./htmlToBlocks";
-import { fileExtension, fileKind, videoMime } from "./fileKinds";
+import { fileExtension, fileKind, IMAGE_ACCEPT, ATTACHMENT_ACCEPT, videoMime } from "./fileKinds";
 import { readZip } from "./zip";
 import { t } from "@/i18n";
 import { markdownToEditorBlocks } from "@/lib/ai/markdown";
 
 export const WORD_ACCEPT =
   ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/** 顶栏导入：Word，以及图片 */
+export const IMPORT_WORD_OR_IMAGE_ACCEPT = `image/*,${IMAGE_ACCEPT},${WORD_ACCEPT}`;
+
+/** 从文件夹导入：原来能选的文档，再加上图片 */
+export const IMPORT_ACCEPT = `${IMPORT_WORD_OR_IMAGE_ACCEPT},${ATTACHMENT_ACCEPT},.md,.markdown,.txt`;
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

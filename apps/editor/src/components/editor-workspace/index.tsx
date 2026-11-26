@@ -1,5 +1,5 @@
 import type { MutableRefObject, ReactNode } from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Cloud, Download, Ellipsis, FileOutput, HardDrive, Menu, Redo2, Trash2, Undo2 } from "lucide-react";
 import type { EditorJsDocument } from "@myblog/shared";
@@ -17,7 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStatus } from "@/layouts/workspace/context";
-import { WORD_ACCEPT } from "@/lib/document/import";
+import { isImportImage, partitionImportFiles } from "@/lib/document/fileKinds";
+import { IMPORT_ACCEPT, IMPORT_WORD_OR_IMAGE_ACCEPT } from "@/lib/document/import";
 import type { ExportFormat } from "@/lib/document/export";
 import type { AppLocale } from "@/i18n";
 import type { AttachmentData } from "@/store/fileStore";
@@ -157,8 +158,19 @@ export function EditorWorkspace(props: Props) {
     onCreatePage,
   } = props;
   const blocked = !page || emptyTeamId !== null;
-  const [ioMode, setIoMode] = useState<"import" | "export" | null>(null);
+  const [ioMode, setIoMode] = useState<"export" | null>(null);
   const [importImages, setImportImages] = useState<{ files: File[]; nonce: number } | null>(null);
+  const mobileImportRef = useRef<HTMLInputElement>(null);
+
+  function takeMobileImport(files: File[]) {
+    const { images, rest } = partitionImportFiles(files);
+    if (images.length) {
+      setImportImages({ files: images, nonce: Date.now() });
+    }
+    if (rest.length) {
+      onDrop(rest, null);
+    }
+  }
 
   return (
     <main className="flex h-full min-h-0 min-w-0 flex-col bg-background">
@@ -192,12 +204,19 @@ export function EditorWorkspace(props: Props) {
             importInputRef.current = node;
           }}
           type="file"
-          accept={WORD_ACCEPT}
+          accept={IMPORT_WORD_OR_IMAGE_ACCEPT}
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
             event.target.value = "";
-            if (file) onImportFile(file);
+            if (!file) {
+              return;
+            }
+            if (isImportImage(file)) {
+              setImportImages({ files: [file], nonce: Date.now() });
+              return;
+            }
+            onImportFile(file);
           }}
         />
           <span className="hidden shrink-0 items-center gap-2 sm:inline-flex">
@@ -291,8 +310,8 @@ export function EditorWorkspace(props: Props) {
                       icon={<Download {...iconProps} />}
                       disabled={blocked || pageReadOnly}
                       onClick={() => {
+                        mobileImportRef.current?.click();
                         onMobileMenu(false);
-                        setIoMode("import");
                       }}
                     >
                       {t("common.import")}
@@ -369,15 +388,27 @@ export function EditorWorkspace(props: Props) {
       </FileDropZone>
       <div ref={onBarSlot} className="relative shrink-0" />
       {isMobile ? (
-        <MobileIoSheet
-          mode={ioMode}
-          onClose={() => setIoMode(null)}
-          onImages={(files) => setImportImages({ files, nonce: Date.now() })}
-          onFiles={(files) => onDrop(files, null)}
-          onExport={(format) => {
-            if (page) onExport(format);
-          }}
-        />
+        <>
+          <input
+            ref={mobileImportRef}
+            type="file"
+            accept={IMPORT_ACCEPT}
+            multiple
+            className="sr-only"
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              takeMobileImport(files);
+            }}
+          />
+          <MobileIoSheet
+            mode={ioMode}
+            onClose={() => setIoMode(null)}
+            onExport={(format) => {
+              if (page) onExport(format);
+            }}
+          />
+        </>
       ) : null}
     </main>
   );
