@@ -214,7 +214,6 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
     setBubbles([]);
     setThreadId(null);
     saveActiveThreadId(null);
-    setPermOpen(false);
     if (isMobile) {
       setHistoryOpen(false);
     }
@@ -583,14 +582,13 @@ export function WikiChat({ open, focusToken, loggedIn, onClose, onLogin, onLocat
             aria-hidden={!historyOpen}
           >
             <HistoryPanel
-              className={viewport.keyboardOpen ? undefined : "pb-[env(safe-area-inset-bottom)]"}
+              className={cn("bg-background", viewport.keyboardOpen ? undefined : "pb-[env(safe-area-inset-bottom)]")}
               threads={threads}
               activeId={threadId}
               onNew={startNewChat}
               onOpen={openThread}
               onDelete={removeThread}
               width="100%"
-              className="bg-background"
             />
           </div>
         </>
