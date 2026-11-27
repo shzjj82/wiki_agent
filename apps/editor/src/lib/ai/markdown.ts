@@ -338,9 +338,23 @@ function stripHtml(value: string): string {
     .trim();
 }
 
+/** 流式回复里还没写完的网址先不画出来。否则地址逐字变长，下划线又会被当成斜体，收齐后再缩成链接，气泡会一直跳。 */
+export function holdOpenUrls(source: string): string {
+  const fences = source.match(/```/g);
+  if (fences && fences.length % 2 === 1) {
+    const at = source.lastIndexOf("```");
+    return holdOpenUrls(source.slice(0, at)) + source.slice(at);
+  }
+  const withoutOpenLink = source.replace(/!?\[[^\]\n]*\]\((?:https?:\/\/[^)\s]*)?$/i, (all) => {
+    const labeled = /^!?\[([^\]\n]*)\]/.exec(all);
+    return labeled?.[1] ?? "";
+  });
+  return withoutOpenLink.replace(/(^|[\s\u3000（(])https?:\/\/[^\s\u3000，。！？、；：）】」》\]\)>]*$/i, "$1");
+}
+
 /** 聊天气泡 Markdown → 安全 HTML */
-export function renderChatMarkdown(source: string): string {
-  const raw = String(source ?? "");
+export function renderChatMarkdown(source: string, streaming = false): string {
+  const raw = streaming ? holdOpenUrls(String(source ?? "")) : String(source ?? "");
   if (!raw.trim()) {
     return "";
   }

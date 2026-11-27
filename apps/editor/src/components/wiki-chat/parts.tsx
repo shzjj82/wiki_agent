@@ -55,10 +55,12 @@ function AssistantText({
   content,
   sources,
   onLocate,
+  streaming,
 }: {
   content: string;
   sources?: WikiSource[];
   onLocate: (target: LocateTarget | null) => void;
+  streaming?: boolean;
 }) {
   const { t: tr } = useTranslation();
   const marked = Boolean(sources?.length);
@@ -84,6 +86,7 @@ function AssistantText({
             }
           : undefined
       }
+      streaming={streaming}
     />
   );
 }
@@ -150,6 +153,7 @@ export function ChatMessages({
                 content={item.content || (sending && item.id === replyingId ? tr("spotlight.thinking") : "")}
                 sources={item.sources}
                 onLocate={onLocate}
+                streaming={sending && item.id === replyingId}
               />
               {item.content.trim() && item.id !== replyingId ? (
                 <div className="-ml-1 mt-1 flex items-center gap-0.5">

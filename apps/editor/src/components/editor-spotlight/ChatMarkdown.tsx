@@ -11,11 +11,16 @@ type Props = {
   className?: string;
   /** 用户消息可关掉复杂样式，仍识别基础 markdown */
   compact?: boolean;
+  /** 回复还在逐字到达时，先藏住没写完的网址 */
+  streaming?: boolean;
   onCite?: (index: number) => void;
 };
 
-export function ChatMarkdown({ content, html: htmlOverride, className, compact, onCite }: Props) {
-  const html = useMemo(() => htmlOverride ?? renderChatMarkdown(content), [content, htmlOverride]);
+export function ChatMarkdown({ content, html: htmlOverride, className, compact, streaming, onCite }: Props) {
+  const html = useMemo(
+    () => (streaming ? renderChatMarkdown(content, true) : htmlOverride ?? renderChatMarkdown(content)),
+    [content, htmlOverride, streaming],
+  );
   function onClickCapture(event: MouseEvent<HTMLDivElement>) {
     const node = event.target;
     if (!(node instanceof Element)) {

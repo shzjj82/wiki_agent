@@ -268,6 +268,8 @@ export function WorkDesk({ open, focusToken, loggedIn, onClose, onLogin, onDeliv
     void runTurn(history, assistantId);
   };
 
+  const streamingId = sending ? [...bubbles].reverse().find((item) => item.role === "assistant")?.id : undefined;
+
   return (
     <aside
       className="fixed z-[60] flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-background shadow-[0_18px_50px_rgb(0_0_0/0.14)]"
@@ -300,7 +302,7 @@ export function WorkDesk({ open, focusToken, loggedIn, onClose, onLogin, onDeliv
                 </div>
               ) : item.role === "assistant" ? (
                 <div key={item.id} className="bg-muted/70 max-w-[92%] space-y-2 rounded-2xl rounded-bl-md px-3 py-2 text-sm">
-                  <ChatMarkdown content={item.content || (sending ? t("spotlight.thinking") : "")} />
+                  <ChatMarkdown content={item.content || (sending ? t("spotlight.thinking") : "")} streaming={item.id === streamingId} />
                   {item.result ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => onOpenResult(item.result!.id)}>
                       {t("work.openResult", { title: item.result.title })}

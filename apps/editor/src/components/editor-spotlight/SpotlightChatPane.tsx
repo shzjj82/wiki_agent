@@ -96,6 +96,7 @@ export function SpotlightChatPane({
     setPicking(false);
     setPicked([]);
   };
+  const streamingId = sending ? [...bubbles].reverse().find((item) => item.role === "assistant")?.id : undefined;
   useEffect(() => {
     if (!picking) {
       return;
@@ -165,6 +166,7 @@ export function SpotlightChatPane({
                   content={item.content}
                   className="editor-spotlight-bubble-text"
                   compact={item.role === "user"}
+                  streaming={item.id === streamingId}
                 />
                 {item.attachments?.length ? <BubbleAttachments items={item.attachments} /> : null}
                 {item.role === "assistant" ? (
